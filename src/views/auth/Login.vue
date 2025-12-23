@@ -16,7 +16,7 @@ const handleLogin = async () => {
     try {
         await auth.login(form.value.email, form.value.password);
         // If successful, redirect to dashboard
-        router.push({ name: 'api/dashboard' });
+        router.push({ name: 'dashboard' });
     } catch (error) {
         alert("Login failed!");
     }
