@@ -16,7 +16,7 @@ const handleLogin = async () => {
     try {
         await auth.login(form.value.email, form.value.password);
         // If successful, redirect to dashboard
-        router.push({ name: 'api/Dashboard' });
+        router.push({ name: 'api/dashboard' });
     } catch (error) {
         alert("Login failed!");
     }
@@ -25,8 +25,10 @@ const handleLogin = async () => {
 
 <template>
     <form @submit.prevent="handleLogin">
-        <input v-model="email" type="email" placeholder="Email" />
-        <input v-model="password" type="password" placeholder="Password" />
+        <input v-model="form.email" type="email" placeholder="Email" />
+        
+        <input v-model="form.password" type="password" placeholder="Password" />
+        
         <button type="submit">Login</button>
     </form>
 </template>
