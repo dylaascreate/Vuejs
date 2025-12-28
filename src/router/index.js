@@ -36,28 +36,27 @@ const router = createRouter({
   ],
 })
 
-// 2. The Navigation Guard (The "Bouncer")
 router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore();
 
-    // specific case: If refreshing the page, wait for the user query to finish
-    // so we know if the session is actually valid.
+    // 1. Restore session if needed
     if (!authStore.user && to.meta.requiresAuth) {
          await authStore.getUser();
     }
 
-    // A. If route requires auth and user is NOT logged in -> Login
+    // 2. Logic Chain
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-        return next({ name: 'Login' });
-    }
+        // Case A: User needs to login
+        next({ name: 'login' }); // (Must be lowercase)
 
-    // B. If route is for guests (Login page) and user IS logged in -> Dashboard
-    if (to.meta.guest && authStore.isAuthenticated) {
-        return next({ name: 'Dashboard' });
-    }
+    } else if (to.meta.guest && authStore.isAuthenticated) {
+        // Case B: User is already logged in, kick them out of login page
+        next({ name: 'dashboard' }); // (Must be lowercase)
 
-    // C. Otherwise, allow navigation
-    next();
+    } else {
+        // Case C: Proceed as normal
+        next(); 
+    }
 });
 
 export default router

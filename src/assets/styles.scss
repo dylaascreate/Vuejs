@@ -1,0 +1,146 @@
+@use 'primeicons/primeicons.css';
+@use '@/assets/layout/layout.scss';
+@use '@/assets/demo/demo.scss';
+
+/* 1. DEFINE VARIABLES */
+:root {
+    /* --- LIGHT THEME (Default) --- */
+    --primary-color: #7bc5cd;
+    --primary-color-text: #ffffff;
+    --text-color: #2c4c52;
+    --text-color-secondary: #4a7a82;
+    --surface-ground: #e0f2f1;  /* Light Teal Background */
+    --surface-section: #ffffff;
+    --surface-card: rgba(255, 255, 255, 0.6); /* Light Glass */
+    --surface-border: rgba(44, 76, 82, 0.1);
+    --surface-overlay: #ffffff;
+    --mask-bg: rgba(0, 0, 0, 0.4);
+    
+    /* Custom Y2K Gradients */
+    --y2k-gradient-1: linear-gradient(135deg, #2c4c52 0%, #1a3338 100%);
+    --y2k-shadow: 0 4px 20px rgba(44, 76, 82, 0.05);
+}
+
+:root.app-dark {
+    /* --- DARK THEME (Activated by toggle) --- */
+    --primary-color: #7bc5cd;
+    --primary-color-text: #1a3338;
+    --text-color: #e0f2f1;      /* Light Text */
+    --text-color-secondary: #7bc5cd;
+    --surface-ground: #1a3338;  /* Deep Dark Teal Background */
+    --surface-section: #2c4c52;
+    --surface-card: rgba(26, 51, 56, 0.6); /* Dark Glass */
+    --surface-border: rgba(123, 197, 205, 0.1);
+    --surface-overlay: #2c4c52;
+    --mask-bg: rgba(0, 0, 0, 0.6);
+
+    /* Custom Y2K Gradients Dark */
+    --y2k-gradient-1: linear-gradient(135deg, #7bc5cd 0%, #5d9ca4 100%);
+    --y2k-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* 2. APPLY VARIABLES */
+body {
+    background-color: var(--surface-ground);
+    color: var(--text-color);
+    font-family: 'Inter', sans-serif;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* 3. COMPONENT OVERRIDES */
+
+/* Glassmorphic Card */
+.card {
+    background: var(--surface-card) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--surface-border) !important;
+    border-radius: 1.5rem !important;
+    box-shadow: var(--y2k-shadow) !important;
+    color: var(--text-color) !important;
+}
+
+/* Sidebar Glassmorphism */
+.layout-sidebar {
+    background: var(--surface-card) !important;
+    backdrop-filter: blur(12px) !important;
+    border-right: 1px solid var(--surface-border) !important;
+}
+
+/* Y2K Inputs */
+.p-inputtext, .p-dropdown, .p-multiselect, .p-textarea {
+    background: rgba(255, 255, 255, 0.7) !important;
+    border: 2px solid transparent !important;
+    border-radius: 0.75rem !important;
+    color: #2c4c52 !important; /* Keep input text readable */
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Dark Mode Inputs Adjustment */
+:root.app-dark .p-inputtext, 
+:root.app-dark .p-dropdown, 
+:root.app-dark .p-multiselect {
+    background: rgba(0, 0, 0, 0.3) !important;
+    color: #e0f2f1 !important;
+}
+
+.p-inputtext:hover, .p-inputtext:focus,
+.p-dropdown:hover, .p-dropdown.p-focus {
+    background: var(--surface-overlay) !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 2px rgba(123, 197, 205, 0.2) !important;
+}
+
+/* Y2K Primary Buttons */
+.p-button.p-button-primary {
+    background: var(--y2k-gradient-1) !important;
+    border: none !important;
+    color: var(--primary-color) !important;
+    font-weight: 900 !important;
+    border-radius: 9999px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* In Dark Mode, flip button text color for contrast */
+:root.app-dark .p-button.p-button-primary {
+    color: #1a3338 !important; 
+}
+
+.p-button.p-button-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(44, 76, 82, 0.3);
+    filter: brightness(1.1);
+}
+
+.y2k-button-primary {
+    background: linear-gradient(135deg, #2c4c52 0%, #1a3338 100%) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    color: #7bc5cd !important;
+    font-weight: 900 !important;
+    border-radius: 9999px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    box-shadow: 0 10px 20px -5px rgba(44, 76, 82, 0.4);
+    transition: all 0.3s ease;
+}
+
+.y2k-button-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px -5px rgba(44, 76, 82, 0.5);
+    filter: brightness(1.1);
+}
+
+.y2k-button-secondary {
+    background: transparent !important;
+    border: 2px solid #2c4c52 !important;
+    color: #2c4c52 !important;
+    font-weight: 800 !important;
+    border-radius: 9999px !important;
+    text-transform: uppercase;
+}
+.y2k-button-secondary:hover {
+    background: #2c4c52 !important;
+    color: #7bc5cd !important;
+}
