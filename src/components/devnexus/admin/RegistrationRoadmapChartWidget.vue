@@ -7,48 +7,39 @@ const chartData = ref(null);
 const chartOptions = ref(null);
 
 function setChartData() {
-    const documentStyle = getComputedStyle(document.documentElement);
-
     return {
-        labels: ['January', 'February', 'March', 'April', 'May', 'June'],
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
         datasets: [
             {
-                label: 'Students Registered',
+                label: 'Registered Users',
                 data: [650, 900, 1200, 1600, 2100, 2800],
-                fill: false,
-                borderColor: documentStyle.getPropertyValue('--p-blue-500'),
+                fill: true,
+                backgroundColor: 'rgba(123, 197, 205, 0.2)', // Light Teal Faded
+                borderColor: '#7bc5cd', // Light Teal
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: '#7bc5cd',
+                pointHoverBackgroundColor: '#2c4c52',
                 tension: 0.4
             },
             {
                 label: 'Roadmaps Generated',
                 data: [300, 700, 1100, 1900, 2600, 3500],
                 fill: false,
-                borderColor: documentStyle.getPropertyValue('--p-orange-500'),
-                tension: 0.4
-            },
-            {
-                label: 'Courses Completed',
-                data: [150, 400, 800, 1200, 1800, 2400],
-                fill: false,
-                borderColor: documentStyle.getPropertyValue('--p-purple-500'),
-                tension: 0.4
-            },
-            {
-                label: 'Projects Created',
-                data: [50, 200, 450, 900, 1300, 1900],
-                fill: false,
-                borderColor: documentStyle.getPropertyValue('--p-cyan-500'),
-                tension: 0.4
+                borderColor: '#2c4c52', // Dark Teal
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: '#2c4c52',
+                pointHoverBackgroundColor: '#7bc5cd',
+                tension: 0.4,
+                borderDash: [5, 5]
             }
         ]
     };
 }
 
 function setChartOptions() {
-    const documentStyle = getComputedStyle(document.documentElement);
-    const textColor = documentStyle.getPropertyValue('--text-color');
-    const textColorSecondary = documentStyle.getPropertyValue('--text-color-secondary');
-    const surfaceBorder = documentStyle.getPropertyValue('--surface-border');
+    const textColor = '#2c4c52';
+    const textColorSecondary = '#4a7a82';
+    const surfaceBorder = 'rgba(44, 76, 82, 0.1)';
 
     return {
         maintainAspectRatio: false,
@@ -56,30 +47,30 @@ function setChartOptions() {
         plugins: {
             legend: {
                 labels: {
-                    color: textColor
-                }
+                    color: textColor,
+                    font: { family: 'monospace', weight: 'bold', size: 10 },
+                    usePointStyle: true,
+                    boxWidth: 8
+                },
+                align: 'end'
             },
             tooltip: {
-                mode: 'index',
-                intersect: false
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                titleColor: '#2c4c52',
+                bodyColor: '#4a7a82',
+                borderColor: 'rgba(44, 76, 82, 0.1)',
+                borderWidth: 1,
+                titleFont: { weight: 'bold' }
             }
         },
         scales: {
             x: {
-                ticks: {
-                    color: textColorSecondary
-                },
-                grid: {
-                    color: surfaceBorder
-                }
+                ticks: { color: textColorSecondary, font: { size: 10, weight: 'bold' } },
+                grid: { color: surfaceBorder, drawBorder: false }
             },
             y: {
-                ticks: {
-                    color: textColorSecondary
-                },
-                grid: {
-                    color: surfaceBorder
-                }
+                ticks: { color: textColorSecondary, font: { size: 10, weight: 'bold' } },
+                grid: { color: surfaceBorder, drawBorder: false }
             }
         }
     };
@@ -97,8 +88,16 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="card">
-        <div class="font-semibold text-xl mb-4">Engagement Funnel</div>
+    <div class="bg-white/40 backdrop-blur-xl border border-white/60 p-6 rounded-3xl shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                 <h4 class="font-black text-[#2c4c52] uppercase text-lg leading-none mb-1">Engagement Funnel</h4>
+                 <span class="font-mono text-xs font-bold text-[#7bc5cd] uppercase">User Growth vs Activity</span>
+            </div>
+            <div class="px-3 py-1 rounded-lg bg-[#2c4c52]/5 border border-[#2c4c52]/10">
+                <span class="text-[10px] font-bold text-[#2c4c52] uppercase">Live Data</span>
+            </div>
+        </div>
         <Chart type="line" :data="chartData" :options="chartOptions" class="h-80" />
     </div>
 </template>

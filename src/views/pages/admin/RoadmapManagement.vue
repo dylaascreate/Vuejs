@@ -133,236 +133,337 @@ function getStatusSeverity(status) {
 }
 
 function getGenerationIcon(status) {
-    return status === 'Success' ? 'pi pi-verified' : 'pi pi-exclamation-circle';
+    return status === 'Success' ? 'pi pi-verified' : 'pi pi-exclamation-triangle';
 }
 </script>
 
 <template>
-    <div>
-        <div class="card border border-surface-200 dark:border-surface-700 shadow-sm">
-            <Toolbar class="mb-6 !bg-transparent !border-none !p-0">
-                <template #start>
-                    <div class="flex flex-col">
-                        <div class="flex items-center gap-2 mb-1">
-                            <i class="pi pi-map text-2xl text-primary"></i>
-                            <h4 class="m-0 font-bold text-xl text-surface-900 dark:text-surface-0">Roadmap Governance</h4>
-                        </div>
-                        <span class="text-muted-color text-sm">Monitor generation health, AI status, and student progress.</span>
+    <div class="relative min-h-[85vh] font-sans text-[#2c4c52]">
+
+        <div class="absolute inset-0 z-0 pointer-events-none opacity-20"
+             style="background-image: linear-gradient(#7bc5cd 1px, transparent 1px), linear-gradient(90deg, #7bc5cd 1px, transparent 1px); background-size: 40px 40px;">
+        </div>
+        <div class="absolute top-0 right-0 w-[50vw] h-[50vw] bg-[#7bc5cd] rounded-full blur-[120px] opacity-15 pointer-events-none"></div>
+
+        <div class="relative z-10 grid grid-cols-12 gap-8 p-4">
+
+            <div class="col-span-12 flex flex-col md:flex-row justify-between items-end gap-4 mb-2">
+                <div>
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#2c4c52]/5 border border-[#2c4c52]/10 mb-2">
+                        <i class="pi pi-compass text-xs text-[#2c4c52]"></i>
+                        <span class="font-mono text-xs font-bold text-[#2c4c52]/70 tracking-widest uppercase">AI_GENERATION_PROTOCOL_V1</span>
                     </div>
-                </template>
+                    <h2 class="text-3xl font-black text-[#2c4c52] uppercase tracking-tighter">Roadmap Governance</h2>
+                </div>
 
-                <template #end>
-                    <div class="flex gap-2">
-                        <Button label="Export" icon="pi pi-download" severity="secondary" outlined @click="dt.exportCSV($event)" />
-                        <Button label="Bulk Delete" icon="pi pi-trash" severity="danger" @click="confirmDeleteSelected" :disabled="!selectedRoadmaps || !selectedRoadmaps.length" />
-                    </div>
-                </template>
-            </Toolbar>
+                <div class="flex gap-3">
+                    <Button label="EXPORT_CSV" icon="pi pi-download" class="y2k-button-secondary !hidden md:!flex" @click="dt.exportCSV($event)" />
+                    <Button label="BULK_DELETE" icon="pi pi-trash" class="y2k-button-danger"
+                            @click="confirmDeleteSelected" :disabled="!selectedRoadmaps || !selectedRoadmaps.length" />
+                </div>
+            </div>
 
-            <DataTable
-                ref="dt"
-                v-model:selection="selectedRoadmaps"
-                :value="roadmaps"
-                dataKey="id"
-                :paginator="true"
-                :rows="10"
-                :filters="filters"
-                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-                :rowsPerPageOptions="[5, 10, 25]"
-                currentPageReportTemplate="Showing {first} to {last} of {totalRecords} roadmaps"
-                class="p-datatable-sm"
-                stripedRows
-                :pt="{
-                    headerRow: { class: 'bg-surface-50 dark:bg-surface-800 text-surface-700 dark:text-surface-0' }
-                }"
-            >
-                <template #header>
-                    <div class="flex justify-end mb-2">
-                        <IconField>
-                            <InputIcon>
-                                <i class="pi pi-search" />
-                            </InputIcon>
-                            <InputText v-model="filters['global'].value" placeholder="Search User, Title, or ID" class="w-64" />
-                        </IconField>
-                    </div>
-                </template>
+            <div class="col-span-12">
+                <div class="bg-white/40 backdrop-blur-xl border border-white/60 p-6 rounded-3xl shadow-sm overflow-hidden">
 
-                <Column selectionMode="multiple" style="width: 3rem" :exportable="false"></Column>
-
-                <Column field="user" header="User" sortable style="min-width: 14rem">
-                    <template #body="slotProps">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
-                                {{ slotProps.data.user.charAt(0) }}
+                    <DataTable
+                        ref="dt"
+                        v-model:selection="selectedRoadmaps"
+                        :value="roadmaps"
+                        dataKey="id"
+                        :paginator="true"
+                        :rows="10"
+                        :filters="filters"
+                        paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                        :rowsPerPageOptions="[5, 10, 25]"
+                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} protocols"
+                        class="y2k-table"
+                        responsiveLayout="scroll"
+                    >
+                        <template #header>
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="font-mono text-xs font-bold text-[#4a7a82] uppercase">Live Tracking</span>
+                                <IconField>
+                                    <InputIcon>
+                                        <i class="pi pi-search text-[#2c4c52]/50" />
+                                    </InputIcon>
+                                    <InputText v-model="filters['global'].value" placeholder="SEARCH PROTOCOLS..." class="y2k-input !py-2 !text-xs !pl-8 !w-64" />
+                                </IconField>
                             </div>
-                            <div class="flex flex-col">
-                                <span class="font-bold text-sm text-surface-900 dark:text-surface-0">{{ slotProps.data.user }}</span>
-                                <span class="text-xs text-muted-color">{{ slotProps.data.email }}</span>
-                            </div>
-                        </div>
-                    </template>
-                </Column>
+                        </template>
 
-                <Column field="title" header="Roadmap" sortable style="min-width: 14rem">
-                    <template #body="slotProps">
-                        <div class="flex flex-col gap-1">
-                            <span class="font-bold text-surface-800 dark:text-surface-100">{{ slotProps.data.title }}</span>
-                            <span class="text-xs text-muted-color flex items-center gap-1">
-                                <i class="pi pi-hashtag text-[10px]"></i> {{ slotProps.data.id }}
-                            </span>
-                        </div>
-                    </template>
-                </Column>
+                        <Column selectionMode="multiple" style="width: 3rem" :exportable="false"></Column>
 
-                <Column field="type" header="Type" sortable style="min-width: 8rem">
-                    <template #body="slotProps">
-                        <Tag :value="slotProps.data.type"
-                             :severity="slotProps.data.type === 'Academic' ? 'warn' : 'info'"
-                             class="!text-xs" />
-                    </template>
-                </Column>
+                        <Column field="user" header="INITIATOR" sortable style="min-width: 14rem">
+                            <template #body="slotProps">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-[#2c4c52]/10 flex items-center justify-center border border-[#2c4c52]/10">
+                                        <span class="font-black text-[#2c4c52]">{{ slotProps.data.user.charAt(0) }}</span>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <span class="font-bold text-[#2c4c52] text-sm">{{ slotProps.data.user }}</span>
+                                        <span class="font-mono text-[10px] text-[#4a7a82]">{{ slotProps.data.email }}</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </Column>
 
-                <Column field="generation_status" header="AI Status" sortable style="min-width: 10rem">
-                    <template #body="slotProps">
-                        <div class="flex items-center gap-2 px-2 py-1 rounded-md w-fit"
-                             :class="slotProps.data.generation_status === 'Success' ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'">
-                            <i :class="[getGenerationIcon(slotProps.data.generation_status), slotProps.data.generation_status === 'Success' ? 'text-green-500' : 'text-red-500']"></i>
-                            <span :class="['text-sm font-bold', slotProps.data.generation_status === 'Success' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300']">
-                                {{ slotProps.data.generation_status === 'Success' ? 'Generated' : 'Failed' }}
-                            </span>
-                        </div>
-                    </template>
-                </Column>
+                        <Column field="title" header="PROTOCOL_TITLE" sortable style="min-width: 14rem">
+                            <template #body="slotProps">
+                                <div class="flex flex-col gap-1">
+                                    <span class="font-bold text-[#2c4c52] leading-tight">{{ slotProps.data.title }}</span>
+                                    <span class="font-mono text-[10px] text-[#7bc5cd] font-bold">ID: {{ slotProps.data.id }}</span>
+                                </div>
+                            </template>
+                        </Column>
 
-                <Column field="progress" header="Completion" sortable style="min-width: 12rem">
-                    <template #body="slotProps">
-                        <div class="w-full">
-                            <div class="flex justify-between text-xs mb-1.5">
-                                <span class="text-muted-color">{{ slotProps.data.completed_tasks }}/{{ slotProps.data.total_tasks }} Steps</span>
-                                <span class="font-bold text-primary">{{ slotProps.data.progress }}%</span>
-                            </div>
-                            <ProgressBar :value="slotProps.data.progress" :showValue="false" style="height: 6px"
-                                :class="[
-                                    'rounded-full',
-                                    slotProps.data.generation_status === 'Error' ? 'opacity-50' : ''
-                                ]"
-                                :pt="{
-                                    value: { class: 'bg-primary' }
-                                }"
-                            />
-                        </div>
-                    </template>
-                </Column>
+                        <Column field="type" header="TYPE" sortable style="min-width: 8rem">
+                            <template #body="slotProps">
+                                <span class="font-mono text-[10px] font-bold uppercase px-2 py-1 rounded border"
+                                      :class="slotProps.data.type === 'Academic' ? 'bg-[#2c4c52] text-[#7bc5cd] border-[#2c4c52]' : 'bg-white text-[#4a7a82] border-[#2c4c52]/20'">
+                                    {{ slotProps.data.type }}
+                                </span>
+                            </template>
+                        </Column>
 
-                <Column field="status" header="Status" sortable style="min-width: 8rem">
-                    <template #body="slotProps">
-                        <Tag :value="slotProps.data.status" :severity="getStatusSeverity(slotProps.data.status)" />
-                    </template>
-                </Column>
+                        <Column field="generation_status" header="AI_STATUS" sortable style="min-width: 10rem">
+                            <template #body="slotProps">
+                                <div class="flex items-center gap-2">
+                                    <i :class="[getGenerationIcon(slotProps.data.generation_status),
+                                       slotProps.data.generation_status === 'Success' ? 'text-green-500' : 'text-red-500']"></i>
+                                    <span class="font-bold text-xs"
+                                          :class="slotProps.data.generation_status === 'Success' ? 'text-[#2c4c52]' : 'text-red-500'">
+                                        {{ slotProps.data.generation_status === 'Success' ? 'OPTIMAL' : 'ERROR' }}
+                                    </span>
+                                </div>
+                            </template>
+                        </Column>
 
-                <Column :exportable="false" style="width: 8rem" header="Actions">
-                    <template #body="slotProps">
-                        <div class="flex gap-1">
-                            <Button icon="pi pi-eye" text rounded severity="info" @click="viewDetails(slotProps.data)" v-tooltip.top="'View Details'" />
-                            <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeleteRoadmap(slotProps.data)" v-tooltip.top="'Delete'" />
-                        </div>
-                    </template>
-                </Column>
-            </DataTable>
+                        <Column field="progress" header="COMPLETION" sortable style="min-width: 12rem">
+                            <template #body="slotProps">
+                                <div class="w-full">
+                                    <div class="flex justify-between text-[10px] mb-1 font-mono font-bold">
+                                        <span class="text-[#4a7a82]">{{ slotProps.data.completed_tasks }}/{{ slotProps.data.total_tasks }} STEPS</span>
+                                        <span class="text-[#2c4c52]">{{ slotProps.data.progress }}%</span>
+                                    </div>
+                                    <div class="h-1.5 w-full bg-[#2c4c52]/10 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-500"
+                                             :class="slotProps.data.generation_status === 'Error' ? 'bg-red-400' : 'bg-[#2c4c52]'"
+                                             :style="{ width: slotProps.data.progress + '%' }"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </Column>
+
+                        <Column field="status" header="STATUS" sortable style="min-width: 8rem">
+                            <template #body="slotProps">
+                                <Tag :value="slotProps.data.status" :severity="getStatusSeverity(slotProps.data.status)" class="!font-mono !text-[10px] !font-bold" />
+                            </template>
+                        </Column>
+
+                        <Column header="OPS" style="width: 8rem; text-align: center" :exportable="false">
+                            <template #body="slotProps">
+                                <div class="flex gap-1 justify-center">
+                                    <Button icon="pi pi-eye" text rounded class="!text-[#2c4c52] !w-8 !h-8 hover:bg-[#2c4c52]/10"
+                                            @click="viewDetails(slotProps.data)" v-tooltip.top="'Inspect Protocol'" />
+                                    <Button icon="pi pi-trash" text rounded class="!text-red-500 !w-8 !h-8 hover:bg-red-50"
+                                            @click="confirmDeleteRoadmap(slotProps.data)" v-tooltip.top="'Delete Node'" />
+                                </div>
+                            </template>
+                        </Column>
+                    </DataTable>
+                </div>
+            </div>
         </div>
 
-        <Dialog v-model:visible="viewRoadmapDialog" :style="{ width: '600px' }" :modal="true" class="p-fluid">
+        <Dialog v-model:visible="viewRoadmapDialog" :style="{ width: '600px' }" modal class="y2k-dialog">
             <template #header>
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                        <i class="pi pi-map text-xl"></i>
+                    <div class="w-10 h-10 rounded-full bg-[#2c4c52]/10 flex items-center justify-center text-[#2c4c52]">
+                        <i class="pi pi-map text-lg"></i>
                     </div>
                     <div>
-                        <span class="font-bold text-xl block">{{ roadmap.title }}</span>
-                        <span class="text-sm text-muted-color">ID: {{ roadmap.id }}</span>
+                        <span class="font-black text-[#2c4c52] uppercase text-lg block leading-none">{{ roadmap.title }}</span>
+                        <span class="font-mono text-[10px] font-bold text-[#7bc5cd] uppercase">SYSTEM ID: {{ roadmap.id }}</span>
                     </div>
                 </div>
             </template>
 
-            <div class="flex flex-col gap-6">
+            <div class="flex flex-col gap-6 py-4">
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-surface-50 dark:bg-surface-800 p-4 rounded-xl border border-surface-200 dark:border-surface-700">
-                        <span class="text-xs font-bold text-muted-color uppercase mb-1 block">Generation Status</span>
+                    <div class="bg-[#2c4c52]/5 p-4 rounded-xl border border-[#2c4c52]/10">
+                        <span class="font-mono text-[10px] font-bold text-[#4a7a82] uppercase mb-2 block">Generation Status</span>
                         <div class="flex items-center gap-2">
                             <i :class="[getGenerationIcon(roadmap.generation_status), roadmap.generation_status === 'Success' ? 'text-green-500' : 'text-red-500']"></i>
-                            <span class="font-bold">{{ roadmap.generation_status }}</span>
+                            <span class="font-bold text-[#2c4c52] uppercase text-sm">{{ roadmap.generation_status }}</span>
                         </div>
                     </div>
-                    <div class="bg-surface-50 dark:bg-surface-800 p-4 rounded-xl border border-surface-200 dark:border-surface-700">
-                        <span class="text-xs font-bold text-muted-color uppercase mb-1 block">Student Status</span>
-                        <Tag :value="roadmap.status" :severity="getStatusSeverity(roadmap.status)" />
+                    <div class="bg-[#2c4c52]/5 p-4 rounded-xl border border-[#2c4c52]/10">
+                        <span class="font-mono text-[10px] font-bold text-[#4a7a82] uppercase mb-2 block">Student Status</span>
+                        <Tag :value="roadmap.status" :severity="getStatusSeverity(roadmap.status)" class="!font-mono !text-[10px] !font-bold" />
                     </div>
                 </div>
 
-                <div class="flex items-center gap-4 p-4 border rounded-xl border-surface-200 dark:border-surface-700">
-                    <div class="w-12 h-12 rounded-full bg-surface-200 flex items-center justify-center font-bold text-xl text-surface-600">
+                <div class="flex items-center gap-4 p-4 border rounded-xl border-[#2c4c52]/20 bg-white">
+                    <div class="w-12 h-12 rounded-full bg-[#2c4c52] flex items-center justify-center font-black text-xl text-[#7bc5cd]">
                         {{ roadmap.user ? roadmap.user.charAt(0) : 'U' }}
                     </div>
                     <div>
-                        <div class="font-bold text-lg">{{ roadmap.user }}</div>
-                        <div class="text-sm text-muted-color">{{ roadmap.email }}</div>
-                        <div class="text-xs text-primary mt-1 font-bold">{{ roadmap.career }}</div>
+                        <div class="font-bold text-[#2c4c52]">{{ roadmap.user }}</div>
+                        <div class="text-xs text-[#4a7a82] font-mono">{{ roadmap.email }}</div>
+                        <div class="text-[10px] text-[#7bc5cd] mt-1 font-bold uppercase tracking-wide">{{ roadmap.career }}</div>
                     </div>
                 </div>
 
                 <div>
                     <div class="flex justify-between items-end mb-2">
-                        <span class="font-bold text-lg">Completion Progress</span>
-                        <span class="font-mono text-primary font-bold">{{ roadmap.progress }}%</span>
+                        <span class="font-bold text-[#2c4c52] text-sm uppercase">Completion Progress</span>
+                        <span class="font-mono text-[#2c4c52] font-bold">{{ roadmap.progress }}%</span>
                     </div>
-                    <ProgressBar :value="roadmap.progress" style="height: 12px" class="rounded-full" />
-                    <div class="text-center mt-2 text-sm text-muted-color">
+                    <div class="h-3 w-full bg-[#2c4c52]/10 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-[#7bc5cd] to-[#2c4c52] rounded-full"
+                             :style="{ width: roadmap.progress + '%' }"></div>
+                    </div>
+                    <div class="text-center mt-2 text-[10px] text-[#4a7a82] font-mono uppercase">
                         {{ roadmap.completed_tasks }} completed out of {{ roadmap.total_tasks }} milestones
                     </div>
                 </div>
 
                 <div v-if="roadmap.nodes && roadmap.nodes.length">
-                    <h5 class="font-bold text-sm text-muted-color uppercase mb-3">Generated Modules</h5>
+                    <h5 class="font-mono text-[10px] font-bold text-[#4a7a82] uppercase mb-3">Generated Modules</h5>
                     <div class="flex flex-wrap gap-2">
-                        <span v-for="node in roadmap.nodes" :key="node" class="px-3 py-1 bg-surface-100 dark:bg-surface-800 rounded-md text-sm border border-surface-200 dark:border-surface-700">
-                            <i class="pi pi-check-circle text-green-500 text-xs mr-1"></i> {{ node }}
+                        <span v-for="node in roadmap.nodes" :key="node" class="px-3 py-1 bg-white rounded-md text-xs font-bold text-[#2c4c52] border border-[#2c4c52]/20 flex items-center gap-2">
+                            <i class="pi pi-check-circle text-[#7bc5cd] text-[10px]"></i> {{ node }}
                         </span>
-                        <span class="px-3 py-1 text-sm text-muted-color">+ {{ roadmap.total_tasks - roadmap.nodes.length }} more</span>
+                        <span class="px-3 py-1 text-xs font-mono font-bold text-[#4a7a82]">+ {{ roadmap.total_tasks - roadmap.nodes.length }} MORE</span>
                     </div>
                 </div>
             </div>
 
             <template #footer>
-                <Button label="Close" icon="pi pi-times" text @click="viewRoadmapDialog = false" />
+                <div class="pt-4 border-t border-[#2c4c52]/10 w-full flex justify-end">
+                    <Button label="CLOSE REPORT" text class="!text-[#2c4c52] !font-bold !text-xs" @click="viewRoadmapDialog = false" />
+                </div>
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="deleteRoadmapDialog" :style="{ width: '450px' }" header="Confirm Removal" :modal="true">
+        <Dialog v-model:visible="deleteRoadmapDialog" :style="{ width: '450px' }" header="Confirm Termination" modal class="y2k-dialog">
             <div class="flex items-start gap-4">
                 <i class="pi pi-exclamation-triangle text-3xl text-red-500 mt-1" />
                 <div>
-                    <span class="font-bold block text-lg mb-2">Delete Roadmap?</span>
-                    <p class="text-muted-color mb-1">
+                    <span class="font-bold block text-[#2c4c52] mb-2">Delete Protocol?</span>
+                    <p class="text-[#4a7a82] text-sm mb-1">
                         You are about to remove <b>{{ roadmap.title }}</b> owned by <b>{{ roadmap.user }}</b>.
                     </p>
-                    <p class="text-red-500 text-sm">This will permanently delete user progress and cannot be undone.</p>
+                    <p class="text-red-500 text-xs font-mono uppercase">This will permanently delete user progress.</p>
                 </div>
             </div>
             <template #footer>
-                <Button label="Cancel" icon="pi pi-times" text @click="deleteRoadmapDialog = false" />
-                <Button label="Delete Permanently" icon="pi pi-trash" severity="danger" @click="deleteRoadmap" />
+                <div class="flex gap-2 justify-end pt-4">
+                    <Button label="ABORT" text class="!text-[#2c4c52] !font-bold !text-xs" @click="deleteRoadmapDialog = false" />
+                    <Button label="TERMINATE" severity="danger" class="!font-bold !text-xs" @click="deleteRoadmap" />
+                </div>
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="deleteRoadmapsDialog" :style="{ width: '450px' }" header="Bulk Removal" :modal="true">
+        <Dialog v-model:visible="deleteRoadmapsDialog" :style="{ width: '450px' }" header="Bulk Termination" modal class="y2k-dialog">
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
-                <span>Are you sure you want to delete the selected roadmaps?</span>
+                <span class="text-[#2c4c52] text-sm">Are you sure you want to delete the selected roadmaps?</span>
             </div>
             <template #footer>
-                <Button label="Cancel" icon="pi pi-times" text @click="deleteRoadmapsDialog = false" />
-                <Button label="Delete All" icon="pi pi-trash" severity="danger" @click="deleteSelectedRoadmaps" />
+                <div class="flex gap-2 justify-end pt-4">
+                    <Button label="ABORT" text class="!text-[#2c4c52] !font-bold !text-xs" @click="deleteRoadmapsDialog = false" />
+                    <Button label="TERMINATE ALL" severity="danger" class="!font-bold !text-xs" @click="deleteSelectedRoadmaps" />
+                </div>
             </template>
         </Dialog>
     </div>
 </template>
+
+<style scoped>
+/* Y2K Utilities */
+.y2k-button-secondary {
+    background: transparent !important;
+    border: 2px solid rgba(44, 76, 82, 0.1) !important;
+    color: #2c4c52 !important;
+    font-weight: 800 !important;
+    border-radius: 9999px !important;
+    text-transform: uppercase;
+    font-size: 0.75rem !important;
+}
+.y2k-button-secondary:hover {
+    background: rgba(44, 76, 82, 0.05) !important;
+    border-color: #2c4c52 !important;
+}
+
+.y2k-button-danger {
+    background: transparent !important;
+    border: 2px solid rgba(239, 68, 68, 0.2) !important;
+    color: #ef4444 !important;
+    font-weight: 800 !important;
+    border-radius: 9999px !important;
+    text-transform: uppercase;
+    font-size: 0.75rem !important;
+}
+.y2k-button-danger:hover {
+    background: rgba(239, 68, 68, 0.05) !important;
+    border-color: #ef4444 !important;
+}
+
+.y2k-input {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid rgba(44, 76, 82, 0.15) !important;
+    border-radius: 8px !important;
+    color: #2c4c52 !important;
+    font-weight: 600 !important;
+}
+
+/* DataTable Customization */
+:deep(.y2k-table .p-datatable-header) {
+    background: transparent;
+    border: none;
+    padding: 0 0 1rem 0;
+}
+:deep(.y2k-table .p-datatable-thead > tr > th) {
+    background: transparent;
+    font-family: monospace;
+    font-size: 0.7rem;
+    font-weight: 900;
+    color: #4a7a82;
+    border-bottom: 2px solid rgba(44, 76, 82, 0.1);
+    padding: 1rem;
+}
+:deep(.y2k-table .p-datatable-tbody > tr) {
+    background: transparent;
+}
+:deep(.y2k-table .p-datatable-tbody > tr:hover) {
+    background: rgba(44, 76, 82, 0.02);
+}
+:deep(.y2k-table .p-datatable-tbody > tr > td) {
+    border-bottom: 1px solid rgba(44, 76, 82, 0.05);
+    padding: 1rem;
+}
+:deep(.y2k-table .p-datatable-tbody > tr:last-child > td) {
+    border-bottom: none;
+}
+
+/* Paginator */
+:deep(.p-paginator) {
+    background: transparent !important;
+    border: none !important;
+    margin-top: 1rem;
+    font-family: monospace;
+}
+
+/* Dialogs */
+:deep(.y2k-dialog .p-dialog-header),
+:deep(.y2k-dialog .p-dialog-content),
+:deep(.y2k-dialog .p-dialog-footer) {
+    background: #fdfdfd !important;
+    color: #2c4c52;
+}
+:deep(.y2k-dialog .p-dialog-header) {
+    border-bottom: 1px solid rgba(44, 76, 82, 0.05);
+}
+</style>

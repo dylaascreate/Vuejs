@@ -11,8 +11,16 @@ export default defineConfig({
     optimizeDeps: {
         noDiscovery: true,
     },
+    base: '/',
     plugins: [
-        vue(),
+        vue({
+            template: {
+                transformAssetUrls: {
+                    base: null,
+                    includeAbsolute: false,
+                },
+            },
+        }),
         tailwindcss(),
         Components({
             resolvers: [PrimeVueResolver()]

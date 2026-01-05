@@ -7,59 +7,76 @@ const chartData = ref(null);
 const chartOptions = ref(null);
 
 function setChartData() {
-    const documentStyle = getComputedStyle(document.documentElement);
-    const textColor = documentStyle.getPropertyValue('--text-color');
-
     return {
-        labels: ['Vue.js', 'Java', 'Python', 'AWS', 'System Design', 'DevOps'],
+        labels: ['Vue.js', 'Tailwind', 'Python', 'System Design', 'DevOps', 'Figma'],
         datasets: [
             {
-                label: 'Current Skill Level',
-                borderColor: documentStyle.getPropertyValue('--p-cyan-400'),
-                backgroundColor: 'rgba(34, 211, 238, 0.2)', // cyan-400 with opacity
-                pointBackgroundColor: documentStyle.getPropertyValue('--p-cyan-400'),
-                pointBorderColor: documentStyle.getPropertyValue('--p-cyan-400'),
-                pointHoverBackgroundColor: textColor,
-                pointHoverBorderColor: documentStyle.getPropertyValue('--p-cyan-400'),
-                data: [85, 90, 60, 40, 55, 30]
+                label: 'Current Mastery',
+                borderColor: '#7bc5cd', // Light Teal
+                backgroundColor: 'rgba(123, 197, 205, 0.4)',
+                pointBackgroundColor: '#7bc5cd',
+                pointBorderColor: '#ffffff',
+                pointHoverBackgroundColor: '#2c4c52',
+                pointHoverBorderColor: '#7bc5cd',
+                data: [85, 90, 75, 55, 30, 80]
             },
             {
-                label: 'Goal Level',
-                borderColor: documentStyle.getPropertyValue('--p-purple-400'),
-                backgroundColor: 'rgba(192, 132, 252, 0.2)', // purple-400 with opacity
-                pointBackgroundColor: documentStyle.getPropertyValue('--p-purple-400'),
-                pointBorderColor: documentStyle.getPropertyValue('--p-purple-400'),
-                pointHoverBackgroundColor: textColor,
-                pointHoverBorderColor: documentStyle.getPropertyValue('--p-purple-400'),
-                data: [90, 95, 80, 80, 85, 75]
+                label: 'Role Target',
+                borderColor: '#2c4c52', // Dark Teal
+                backgroundColor: 'rgba(44, 76, 82, 0.1)',
+                pointBackgroundColor: '#2c4c52',
+                pointBorderColor: '#ffffff',
+                pointHoverBackgroundColor: '#7bc5cd',
+                pointHoverBorderColor: '#2c4c52',
+                data: [90, 95, 80, 85, 75, 85]
             }
         ]
     };
 }
 
 function setChartOptions() {
-    const documentStyle = getComputedStyle(document.documentElement);
-    const textColor = documentStyle.getPropertyValue('--text-color');
-    const surfaceBorder = documentStyle.getPropertyValue('--surface-border');
+    const textColor = '#2c4c52';
+    const gridColor = 'rgba(44, 76, 82, 0.1)';
 
     return {
         plugins: {
             legend: {
                 labels: {
-                    color: textColor
-                }
+                    color: textColor,
+                    font: {
+                        family: 'monospace',
+                        weight: 'bold',
+                        size: 11
+                    },
+                    usePointStyle: true,
+                    boxWidth: 8
+                },
+                position: 'bottom'
             }
         },
         scales: {
             r: {
+                angleLines: {
+                    color: gridColor
+                },
                 grid: {
-                    color: surfaceBorder
+                    color: gridColor
                 },
                 pointLabels: {
-                    color: textColor
+                    color: textColor,
+                    font: {
+                        family: 'monospace',
+                        weight: 'bold',
+                        size: 10
+                    }
+                },
+                ticks: {
+                    display: false, // Hide the numbers on the rings for cleaner look
+                    backdropColor: 'transparent'
                 }
             }
-        }
+        },
+        maintainAspectRatio: false
     };
 }
 
@@ -75,8 +92,19 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="card flex flex-col items-center">
-        <div class="font-semibold text-xl mb-4 self-start">Skill Analytics</div>
-        <Chart type="radar" :data="chartData" :options="chartOptions" class="w-full md:w-[30rem]" />
+    <div class="bg-white/40 backdrop-blur-xl border border-white/60 p-6 rounded-3xl shadow-sm flex flex-col items-center h-full relative overflow-hidden">
+        <div class="absolute -right-10 -top-10 w-32 h-32 bg-[#7bc5cd]/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="w-full flex justify-between items-center mb-4 relative z-10">
+            <div class="flex items-center gap-2">
+                <i class="pi pi-compass text-[#2c4c52]"></i>
+                <h4 class="font-black text-[#2c4c52] uppercase text-sm">Skill Velocity</h4>
+            </div>
+            <span class="font-mono text-[10px] font-bold text-[#7bc5cd] border border-[#7bc5cd]/30 px-2 py-0.5 rounded-full">LIVE_METRICS</span>
+        </div>
+
+        <div class="h-[250px] w-full flex items-center justify-center relative z-10">
+            <Chart type="radar" :data="chartData" :options="chartOptions" class="w-full h-full" />
+        </div>
     </div>
 </template>

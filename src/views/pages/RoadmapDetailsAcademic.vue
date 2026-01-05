@@ -1,82 +1,66 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
-import { useRouter } from 'vue-router'; // Import Router
+import { useRoadmapStore } from '@/stores/roadmap';
+import Skeleton from 'primevue/skeleton';
 
+const route = useRoute();
+const router = useRouter();
 const toast = useToast();
-const router = useRouter(); // Initialize Router
+const roadmapStore = useRoadmapStore();
 
-// --- Mock Data ---
-const roadmap = ref({
-    role: 'Backend Architect',
-    courseCode: 'CS304',
-    courseName: 'Advanced Database Systems',
-    estimate: '14 Weeks',
-    creditHours: 3,
-    level: 'Intermediate',
-    phases: [
-        {
-            id: 1,
-            title: 'Phase 1: Data Modeling & Requirements',
-            description: 'Weeks 1-3: Translating business rules into data structures.',
-            skills: ['Database Design', 'Schema Optimization', 'Technical Specs'], 
-            tasks: [
-                { id: 101, title: 'Lecture 1: Relational Theory', subtitle: 'Understand ACID properties in production.', completed: false },
-                { id: 102, title: 'Lab 1: ERD to Schema', subtitle: 'Design a scalable schema for an E-commerce app.', completed: false },
-                { id: 103, title: 'Assignment 1: Normalization', subtitle: 'Optimize database to 3NF to reduce redundancy.', completed: false }
-            ]
-        },
-        {
-            id: 2,
-            title: 'Phase 2: Query Performance & Logic',
-            description: 'Weeks 4-7: Writing efficient queries for high-load systems.',
-            skills: ['Advanced SQL', 'Query Optimization', 'PL/SQL'],
-            tasks: [
-                { id: 201, title: 'Lecture 4: Indexing Strategies', subtitle: 'B-Tree vs Hash indexes for faster lookups.', completed: false },
-                { id: 202, title: 'Lab 3: Stored Procedures', subtitle: 'Automate business logic inside the DB.', completed: false },
-                { id: 203, title: 'Mid-Sem Project', subtitle: 'Build the backend API connected to your DB.', completed: false }
-            ]
-        },
-        // ... (Other phases kept brief for display, assumed full data is present)
-    ]
-});
+// --- State Management ---
+const isLoading = computed(() => roadmapStore.loading);
+const roadmap = computed(() => roadmapStore.currentRoadmap);
 
-// --- Dialog State ---
+// Local UI State for Editing (Client-side only for now)
 const taskDialog = ref(false);
 const isEditing = ref(false);
 const currentPhaseId = ref(null);
 const taskForm = ref({ id: null, title: '', subtitle: '' });
 
+// --- Lifecycle ---
+onMounted(async () => {
+    const routeId = route.params.id;
+
+    // Optimization: If store already has this roadmap, don't refetch
+    if (roadmapStore.currentRoadmap && String(roadmapStore.currentRoadmap.id) === String(routeId)) {
+        return;
+    }
+
+    if (routeId) {
+        try {
+            await roadmapStore.fetchRoadmap(routeId);
+        } catch (error) {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Academic Roadmap not found.' });
+            router.push({ name: 'dashboard' });
+        }
+    }
+});
+
 // --- Computed Stats ---
-const totalTasks = computed(() => roadmap.value.phases.reduce((acc, phase) => acc + phase.tasks.length, 0));
+const totalTasks = computed(() => {
+    if (!roadmap.value || !roadmap.value.phases) return 0;
+    return roadmap.value.phases.reduce((acc, phase) => acc + (phase.tasks ? phase.tasks.length : 0), 0);
+});
 
 const progressPercentage = computed(() => {
+    if (!roadmap.value || !roadmap.value.phases) return 0;
     let completed = 0;
     let total = 0;
     roadmap.value.phases.forEach(phase => {
-        phase.tasks.forEach(task => {
-            total++;
-            if (task.completed) completed++;
-        });
+        if (phase.tasks) {
+            phase.tasks.forEach(task => {
+                total++;
+                if (task.completed) completed++;
+            });
+        }
     });
     return total === 0 ? 0 : Math.round((completed / total) * 100);
 });
 
 // --- Actions ---
-
-const completeRoadmap = () => {
-    toast.add({ 
-        severity: 'success', 
-        summary: 'Course Completed! 🎉', 
-        detail: 'Excellent work. Returning to dashboard...', 
-        life: 3000 
-    });
-    
-    // Redirect after a short delay for the toast to be seen
-    setTimeout(() => {
-        router.push('/student/roadmaps'); // Update this path to your actual listing route
-    }, 1500);
-};
 
 const openAddTask = (phaseId) => {
     isEditing.value = false;
@@ -103,11 +87,13 @@ const saveTask = () => {
     if (isEditing.value) {
         const taskIndex = phase.tasks.findIndex(t => t.id === taskForm.value.id);
         if (taskIndex !== -1) {
+            // Update in local store state
             phase.tasks[taskIndex].title = taskForm.value.title;
             phase.tasks[taskIndex].subtitle = taskForm.value.subtitle;
             toast.add({ severity: 'success', summary: 'Updated', detail: 'Syllabus updated.', life: 2000 });
         }
     } else {
+        if (!phase.tasks) phase.tasks = [];
         phase.tasks.push({
             id: Date.now(),
             title: taskForm.value.title,
@@ -126,7 +112,6 @@ const handleRowClick = (task) => {
 
 const toggleTask = (task) => {
     if (task.completed) {
-        // Optional: specific check if this was the last task
         if (progressPercentage.value === 100) {
             toast.add({ severity: 'success', summary: 'All Tasks Done', detail: 'You are ready to complete the course!', life: 3000 });
         } else {
@@ -138,17 +123,60 @@ const toggleTask = (task) => {
 const startRoadmap = () => {
     toast.add({ severity: 'info', summary: 'Course Started', detail: 'Course synced to dashboard.', life: 3000 });
 };
+
+const completeRoadmap = () => {
+    toast.add({ severity: 'success', summary: 'Course Completed! 🎉', detail: 'Excellent work.', life: 3000 });
+    setTimeout(() => { router.push({ name: 'dashboard' }); }, 1500);
+};
 </script>
 
 <template>
     <div class="relative min-h-[85vh] font-sans text-[#2c4c52]">
-        
-        <div class="absolute inset-0 z-0 pointer-events-none opacity-10" 
+
+        <div class="absolute inset-0 z-0 pointer-events-none opacity-10"
              style="background-image: linear-gradient(#7bc5cd 1px, transparent 1px), linear-gradient(90deg, #7bc5cd 1px, transparent 1px); background-size: 30px 30px;">
         </div>
 
-        <div class="relative z-10 p-4 max-w-5xl mx-auto flex flex-col gap-8">
-            
+        <div v-if="isLoading" class="relative z-10 p-4 max-w-5xl mx-auto flex flex-col gap-8">
+             <div class="bg-white/40 border border-white/60 p-8 rounded-3xl">
+                <div class="flex flex-col md:flex-row justify-between items-start gap-6">
+                    <div class="w-full">
+                        <Skeleton width="8rem" height="1rem" class="mb-4"></Skeleton>
+                        <Skeleton width="60%" height="3rem" class="mb-4"></Skeleton>
+                        <div class="flex gap-3 mb-4">
+                            <Skeleton width="12rem" height="2rem" borderRadius="12px"></Skeleton>
+                        </div>
+                        <Skeleton width="80%" height="1rem"></Skeleton>
+                    </div>
+                    <div class="flex flex-col items-end gap-2 min-w-[150px]">
+                        <Skeleton width="6rem" height="1rem"></Skeleton>
+                        <Skeleton width="8rem" height="2rem"></Skeleton>
+                        <Skeleton width="100%" height="0.5rem" class="mt-2" borderRadius="99px"></Skeleton>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div class="lg:col-span-8 space-y-8">
+                    <div v-for="n in 3" :key="n" class="relative pl-8">
+                         <div class="bg-white/40 border border-white/60 rounded-3xl p-6">
+                             <Skeleton width="40%" height="1.5rem" class="mb-2"></Skeleton>
+                             <Skeleton width="60%" height="1rem" class="mb-4"></Skeleton>
+                             <div class="space-y-3">
+                                 <Skeleton v-for="i in 2" :key="i" width="100%" height="3rem" borderRadius="12px"></Skeleton>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-4 space-y-6">
+                    <Skeleton width="100%" height="15rem" borderRadius="24px"></Skeleton>
+                    <Skeleton width="100%" height="10rem" borderRadius="24px"></Skeleton>
+                </div>
+            </div>
+        </div>
+
+        <div v-else-if="roadmap" class="relative z-10 p-4 max-w-5xl mx-auto flex flex-col gap-8">
+
             <div class="bg-white/60 backdrop-blur-xl border border-white/60 p-8 rounded-3xl shadow-sm relative overflow-hidden">
                 <div class="absolute -right-10 -top-10 w-64 h-64 bg-[#7bc5cd]/20 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -158,15 +186,17 @@ const startRoadmap = () => {
                             <i class="pi pi-graduation-cap text-xs"></i>
                             <span class="font-mono text-xs font-bold text-[#2c4c52]/70 tracking-widest uppercase">ACADEMIC_PATH_V2</span>
                         </div>
-                        <h1 class="text-4xl font-black text-[#2c4c52] uppercase tracking-tighter mb-3">{{ roadmap.role }}</h1>
+                        <h1 class="text-4xl font-black text-[#2c4c52] uppercase tracking-tighter mb-3">{{ roadmap.role || roadmap.title }}</h1>
+
                         <div class="flex items-center gap-3 mb-4">
                             <div class="flex items-center gap-2 text-[#4a7a82] bg-white/80 px-3 py-1.5 rounded-xl border border-[#2c4c52]/10 shadow-sm">
                                 <i class="pi pi-book text-[#7bc5cd]"></i>
                                 <span class="text-sm font-bold">
-                                    Aligned Course: <span class="text-[#2c4c52] uppercase">{{ roadmap.courseCode }} - {{ roadmap.courseName }}</span>
+                                    Aligned Course: <span class="text-[#2c4c52] uppercase">{{ roadmap.courseCode || 'N/A' }} - {{ roadmap.courseName || 'General Syllabus' }}</span>
                                 </span>
                             </div>
                         </div>
+
                         <p class="text-[#4a7a82] font-medium max-w-xl text-sm leading-relaxed">
                             This roadmap maps your academic syllabus to industry requirements.
                             Mastering these course topics directly builds the <span class="font-bold text-[#2c4c52]">skills employers hire for</span>.
@@ -177,7 +207,7 @@ const startRoadmap = () => {
                         <div class="text-right">
                              <div class="text-xs font-mono font-bold text-[#4a7a82] uppercase mb-1">Course Length</div>
                              <div class="text-2xl font-black text-[#2c4c52] flex items-center gap-2 justify-end">
-                                <i class="pi pi-calendar-times text-lg"></i> {{ roadmap.estimate }}
+                                <i class="pi pi-calendar-times text-lg"></i> {{ roadmap.estimate || '14 Weeks' }}
                              </div>
                         </div>
                         <div class="w-full md:w-48">
@@ -186,7 +216,7 @@ const startRoadmap = () => {
                                 <span>{{ progressPercentage }}%</span>
                             </div>
                             <div class="h-2 w-full bg-[#2c4c52]/10 rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-[#7bc5cd] to-[#2c4c52] transition-all duration-500" 
+                                <div class="h-full bg-gradient-to-r from-[#7bc5cd] to-[#2c4c52] transition-all duration-500"
                                      :style="{ width: `${progressPercentage}%` }"></div>
                             </div>
                         </div>
@@ -195,25 +225,25 @@ const startRoadmap = () => {
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
+
                 <div class="lg:col-span-8 space-y-8">
-                    <div v-for="(phase, index) in roadmap.phases" :key="phase.id" class="relative pl-8 group">
-                        
+                    <div v-for="(phase, index) in roadmap.phases" :key="phase.id || index" class="relative pl-8 group">
+
                         <div class="absolute left-0 top-2 bottom-0 w-0.5 bg-[#2c4c52]/10 group-last:bottom-auto group-last:h-full"></div>
                         <div class="absolute -left-[5px] top-2 w-3 h-3 rounded-full border-2 border-[#2c4c52] bg-white group-hover:bg-[#7bc5cd] group-hover:scale-125 transition-all"></div>
 
                         <div class="bg-white/40 backdrop-blur-md border border-white/60 rounded-3xl p-6 hover:shadow-[0_10px_40px_-15px_rgba(44,76,82,0.1)] transition-all duration-300">
-                            
+
                             <div class="mb-6 border-b border-[#2c4c52]/10 pb-4">
                                 <h3 class="text-xl font-black text-[#2c4c52] uppercase tracking-tight mb-1">{{ phase.title }}</h3>
                                 <p class="text-sm text-[#4a7a82] mb-3">{{ phase.description }}</p>
-                                
+
                                 <div class="flex flex-wrap gap-2">
                                     <div class="flex items-center gap-2 mr-2">
                                         <i class="pi pi-briefcase text-[10px] text-[#2c4c52]/50"></i>
                                         <span class="text-[10px] font-bold text-[#2c4c52]/50 uppercase tracking-wider">Industry Skills:</span>
                                     </div>
-                                    <span v-for="skill in phase.skills" :key="skill" 
+                                    <span v-for="skill in phase.skills" :key="skill"
                                           class="px-2 py-0.5 bg-[#2c4c52] text-white border border-[#2c4c52] rounded text-[10px] font-mono font-bold uppercase shadow-sm">
                                         {{ skill }}
                                     </span>
@@ -221,14 +251,14 @@ const startRoadmap = () => {
                             </div>
 
                             <div class="space-y-3">
-                                <div v-for="task in phase.tasks" :key="task.id" 
+                                <div v-for="task in phase.tasks" :key="task.id"
                                      class="group/task flex items-start gap-3 p-3 rounded-xl hover:bg-white/50 transition-colors border border-transparent hover:border-[#2c4c52]/5 cursor-pointer"
                                      @click="handleRowClick(task)">
-                                    
+
                                     <div class="pt-0.5" @click.stop>
                                         <Checkbox v-model="task.completed" :binary="true" class="y2k-checkbox" @change="toggleTask(task)" />
                                     </div>
-                                    
+
                                     <div class="flex-1">
                                         <div class="text-sm font-bold text-[#2c4c52] transition-all duration-300"
                                              :class="{'line-through opacity-50': task.completed}">
@@ -240,15 +270,15 @@ const startRoadmap = () => {
                                         </div>
                                     </div>
 
-                                    <Button icon="pi pi-pencil" text rounded 
-                                            class="edit-btn !w-6 !h-6 !text-[#2c4c52]/50 hover:!text-[#2c4c52]" 
+                                    <Button icon="pi pi-pencil" text rounded
+                                            class="edit-btn !w-6 !h-6 !text-[#2c4c52]/50 hover:!text-[#2c4c52]"
                                             @click.stop="openEditTask(task, phase.id)" />
                                 </div>
                             </div>
 
                             <div class="mt-4 pt-2 border-t border-dashed border-[#2c4c52]/10">
-                                <Button label="ADD ITEM" icon="pi pi-plus" text 
-                                        class="!text-xs !font-bold !text-[#7bc5cd] hover:bg-[#7bc5cd]/10 !p-1 !px-3" 
+                                <Button label="ADD ITEM" icon="pi pi-plus" text
+                                        class="!text-xs !font-bold !text-[#7bc5cd] hover:bg-[#7bc5cd]/10 !p-1 !px-3"
                                         @click="openAddTask(phase.id)" />
                             </div>
 
@@ -258,7 +288,7 @@ const startRoadmap = () => {
 
                 <div class="lg:col-span-4 space-y-6">
                     <div class="sticky top-6">
-                        
+
                         <div v-if="progressPercentage === 100" class="bg-green-600 text-white p-6 rounded-3xl shadow-xl mb-6 animate-fade-in transition-all">
                              <h4 class="font-black !text-white uppercase text-lg mb-2 flex items-center gap-2">
                                 <i class="pi pi-verified text-xl"></i> All Systems Go
@@ -266,8 +296,8 @@ const startRoadmap = () => {
                              <p class="text-sm text-green-100 mb-6 font-medium">
                                  You have successfully completed all topics in this course.
                              </p>
-                             <Button label="COMPLETE ROADMAP" icon="pi pi-check-circle" 
-                                     class="y2k-button-success-dark w-full !text-xs !py-3" 
+                             <Button label="COMPLETE ROADMAP" icon="pi pi-check-circle"
+                                     class="y2k-button-success-dark w-full !text-xs !py-3"
                                      @click="completeRoadmap" />
                         </div>
 
@@ -283,11 +313,11 @@ const startRoadmap = () => {
                         <div class="bg-white/40 backdrop-blur-md border border-white/60 p-6 rounded-3xl">
                              <h4 class="font-bold text-[#2c4c52] text-sm uppercase mb-4 flex items-center gap-2">
                                 <i class="pi pi-info-circle"></i> Course Details
-                            </h4>
-                            <ul class="space-y-3 text-sm">
+                             </h4>
+                             <ul class="space-y-3 text-sm">
                                 <li class="flex justify-between">
                                     <span class="text-[#4a7a82]">Level</span>
-                                    <span class="font-bold text-[#2c4c52]">{{ roadmap.level }}</span>
+                                    <span class="font-bold text-[#2c4c52]">{{ roadmap.level || 'Intermediate' }}</span>
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-[#4a7a82]">Total Topics</span>
@@ -297,7 +327,7 @@ const startRoadmap = () => {
                                     <span class="text-[#4a7a82]">Assessment</span>
                                     <span class="font-bold text-green-600">Coursework + Exam</span>
                                 </li>
-                            </ul>
+                             </ul>
                         </div>
                     </div>
                 </div>
@@ -361,11 +391,11 @@ const startRoadmap = () => {
     background: rgba(255,255,255,0.1) !important;
 }
 
-/* Success Button for 100% State */
+/* Success Button */
 .y2k-button-success-dark {
     background: #ffffff !important;
     border: 1px solid #ffffff !important;
-    color: #166534 !important; /* Green-700 */
+    color: #166534 !important;
     font-weight: 900 !important;
     border-radius: 9999px !important;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
@@ -375,17 +405,17 @@ const startRoadmap = () => {
     transform: translateY(-1px);
 }
 
-/* Edit Button Mobile Logic */
+/* Edit Button Logic */
 .edit-btn {
-    opacity: 1; 
+    opacity: 1;
     transition: opacity 0.2s ease;
 }
 @media (hover: hover) {
     .edit-btn {
-        opacity: 0; 
+        opacity: 0;
     }
     .group\/task:hover .edit-btn {
-        opacity: 1; 
+        opacity: 1;
     }
 }
 
@@ -417,8 +447,8 @@ const startRoadmap = () => {
 }
 
 /* Dialog */
-:deep(.y2k-dialog .p-dialog-header), 
-:deep(.y2k-dialog .p-dialog-content), 
+:deep(.y2k-dialog .p-dialog-header),
+:deep(.y2k-dialog .p-dialog-content),
 :deep(.y2k-dialog .p-dialog-footer) {
     background: #ffffff !important;
     color: #2c4c52;

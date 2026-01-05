@@ -42,21 +42,28 @@ const handleLogin = async () => {
     }
 };
 
-const StarIcon = {
-    template: `
-        <svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 animate-pulse text-white">
-            <path d="M12 0L14 10L24 12L14 14L12 24L10 14L0 12L10 10L12 0Z" />
-        </svg>
-    `
+// === TESTING UTILITIES (REMOVE BEFORE PRODUCTION) ===
+const autofillStudent = () => {
+    form.value.email = 'student@devnexus.ts';
+    form.value.password = 'password';
 };
+
+const autofillAdmin = () => {
+    form.value.email = 'admin@devnexus.ts';
+    form.value.password = 'admin';
+};
+
+// Optional: auto login after autofill
+// const autofillStudent = async () => {
+//     form.value.email = 'student@devnexus.com';
+//     form.value.password = 'password123';
+//     await handleLogin();
+// };
 </script>
 
 <template>
     <div class="min-h-screen flex items-center justify-center bg-[#e0f2f1] overflow-hidden relative font-sans text-[#2c4c52]">
 
-        <div class="fixed inset-0 z-0 pointer-events-none opacity-20"
-             style="background-image: linear-gradient(#7bc5cd 1px, transparent 1px), linear-gradient(90deg, #7bc5cd 1px, transparent 1px); background-size: 40px 40px;">
-        </div>
         <div class="absolute top-[-20%] left-[-10%] w-[60vw] h-[60vw] bg-[#7bc5cd] rounded-full blur-[100px] opacity-30 animate-blob"></div>
         <div class="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-[#a7e2e8] rounded-full blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
 
@@ -69,6 +76,20 @@ const StarIcon = {
                 </h1>
                 <p class="font-mono text-sm text-[#4a7a82] tracking-widest">/// DEVNEXUS_AUTH_PROTOCOL</p>
             </div>
+            <div class="mb-6 flex gap-3 justify-center">
+    <Button
+        label="Student"
+        type="button"
+        class="y2k-button-secondary"
+        @click="autofillStudent"
+    />
+    <Button
+        label="Admin"
+        type="button"
+        class="y2k-button-secondary"
+        @click="autofillAdmin"
+    />
+</div>
 
             <div class="bg-white/40 backdrop-blur-xl border border-white/60 p-8 rounded-3xl shadow-[0_20px_60px_-15px_rgba(44,76,82,0.15)] relative overflow-hidden group">
 
@@ -97,7 +118,7 @@ const StarIcon = {
                             <Checkbox id="rememberme" v-model="checked" :binary="true" class="y2k-checkbox" />
                             <label for="rememberme" class="text-sm font-medium cursor-pointer select-none">Stay Connected</label>
                         </div>
-                        <a class="text-sm font-bold text-[#2c4c52] hover:text-[#7bc5cd] cursor-pointer transition-colors border-b border-transparent hover:border-[#7bc5cd]">
+                        <a href="/auth/reset-password" class="text-sm font-bold text-[#2c4c52] hover:text-[#7bc5cd] cursor-pointer transition-colors border-b border-transparent hover:border-[#7bc5cd]">
                             Reset Key?
                         </a>
                     </div>

@@ -1,16 +1,17 @@
 <script setup>
-import { onMounted, ref, computed, onUnmounted } from 'vue'; // Added onUnmounted
+import { onMounted, onUnmounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import axios from '@/lib/axios';
 import { useToast } from 'primevue/usetoast';
-
-
-// const newRoadmapId = response.data.data.id;
+import { useRoadmapStore } from '@/stores/roadmap'; // Import Store
+import ProgressBar from 'primevue/progressbar';
+import Button from 'primevue/button';
 
 const router = useRouter();
 const route = useRoute();
 const toast = useToast();
+const store = useRoadmapStore(); // Init Store
 
+// --- Config (View Logic) ---
 const isAcademic = computed(() => route.query.type === 'Academic');
 
 const config = computed(() => {
@@ -37,75 +38,26 @@ const config = computed(() => {
     };
 });
 
-const progress = ref(0);
-const statusMessage = ref('Initializing...');
-const errorState = ref(false);
+// --- Actions ---
 
-// Store the interval ID so we can stop it later
-let progressInterval = null;
-
-const generateRoadmap = async () => {
-    // --- 1. RESET STATE (Crucial for Retry) ---
-    if (progressInterval) clearInterval(progressInterval); // Stop old timer
-    errorState.value = false; // Remove red error styling
-    progress.value = 0;       // Reset bar
-    statusMessage.value = 'Initializing...'; // Reset text
-
-    try {
-        // --- 2. Start Animation ---
-        progressInterval = setInterval(() => {
-            if (progress.value < 90) {
-                const increment = progress.value > 60 ? 0.5 : 2;
-                progress.value += increment;
-
-                const currentStep = config.value.steps.findLast(step => progress.value >= step.threshold);
-                if (currentStep) statusMessage.value = currentStep.message;
-            }
-        }, 200);
-
-        // --- 3. Call Real API ---
-        const payload = {
-            level: route.query.level,
-            type: route.query.type,
-            query: route.query.query
-        };
-
-        const response = await axios.post('/api/generate-roadmap', payload);
-
-        // --- 4. Handle Success ---
-        clearInterval(progressInterval);
-        progress.value = 100;
-        statusMessage.value = 'GENERATION COMPLETE.';
-
-        const newRoadmapId = response.data.data.id;
-
-        setTimeout(() => {
-            const targetPath = isAcademic.value
-                ? `/student/roadmap-details-academic/${newRoadmapId}`
-                : `/student/roadmap-details/${newRoadmapId}`;
-
-            router.push(targetPath);
-        }, 800);
-
-    } catch (error) {
-        // --- 5. Handle Error ---
-        clearInterval(progressInterval); // Stop the "thinking" animation
-        progress.value = 0;
-        statusMessage.value = 'GENERATION FAILED.';
-        errorState.value = true;
-
-        console.error("Roadmap Generation Error:", error);
-        toast.add({ severity: 'error', summary: 'AI Error', detail: 'Failed to generate roadmap. Please try again.', life: 5000 });
-    }
+const triggerGeneration = () => {
+    const payload = {
+        level: route.query.level,
+        type: route.query.type,
+        query: route.query.query
+    };
+    // Pass config, router, and toast to the store action
+    store.generateRoadmapWithAnimation(payload, config.value, router, toast);
 };
 
+// --- Lifecycle ---
+
 onMounted(() => {
-    generateRoadmap();
+    triggerGeneration();
 });
 
-// Clean up timer if user leaves page mid-generation
 onUnmounted(() => {
-    if (progressInterval) clearInterval(progressInterval);
+    store.clearGenerationInterval(); // Clean up timer in store
 });
 </script>
 
@@ -119,22 +71,22 @@ onUnmounted(() => {
 
         <div class="relative z-10 w-full max-w-xl">
             <div class="bg-white/40 backdrop-blur-xl border border-white/60 p-8 rounded-3xl shadow-[0_20px_60px_-15px_rgba(44,76,82,0.15)] text-center overflow-hidden transition-colors duration-500"
-                 :class="{'!border-red-400 !bg-red-50/50': errorState}">
+                 :class="{'!border-red-400 !bg-red-50/50': store.genError}">
 
-                <div v-if="!errorState" class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#7bc5cd] via-[#2c4c52] to-[#7bc5cd] animate-scan"></div>
+                <div v-if="!store.genError" class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#7bc5cd] via-[#2c4c52] to-[#7bc5cd] animate-scan"></div>
 
                 <div class="mb-8">
                     <div class="relative inline-block mb-4">
-                        <i :class="['pi text-6xl text-[#2c4c52]', errorState ? 'pi-exclamation-triangle' : 'pi-spin ' + config.mainIcon]"></i>
-                        <i v-if="!errorState" :class="['pi text-2xl text-[#7bc5cd] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2', config.secondaryIcon]"></i>
+                        <i :class="['pi text-6xl text-[#2c4c52]', store.genError ? 'pi-exclamation-triangle' : 'pi-spin ' + config.mainIcon]"></i>
+                        <i v-if="!store.genError" :class="['pi text-2xl text-[#7bc5cd] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2', config.secondaryIcon]"></i>
                     </div>
                     <h2 class="text-2xl font-black text-[#2c4c52] uppercase tracking-widest mb-2">{{ config.title }}</h2>
-                    <div class="font-mono text-sm font-bold text-[#7bc5cd] animate-pulse uppercase" :class="{'text-red-500': errorState}">
-                        {{ statusMessage }}
+                    <div class="font-mono text-sm font-bold text-[#7bc5cd] animate-pulse uppercase" :class="{'text-red-500': store.genError}">
+                        {{ store.genStatus }}
                     </div>
                 </div>
 
-                <ProgressBar :value="progress" class="h-4 rounded-full bg-[#2c4c52]/10" :showValue="false">
+                <ProgressBar :value="store.genProgress" class="h-4 rounded-full bg-[#2c4c52]/10" :showValue="false">
                     <template #default>
                         <div class="h-full bg-gradient-to-r from-[#7bc5cd] to-[#2c4c52] rounded-full transition-all duration-300"></div>
                     </template>
@@ -142,21 +94,21 @@ onUnmounted(() => {
 
                 <div class="flex justify-between font-mono text-xs font-bold text-[#2c4c52]/60 mt-1">
                     <span>0%</span>
-                    <span>{{ Math.floor(progress) }}%</span>
+                    <span>{{ Math.floor(store.genProgress) }}%</span>
                     <span>100%</span>
                 </div>
 
                 <div class="mt-8 flex flex-col gap-3 text-left pl-4 border-l-2 border-[#2c4c52]/10">
                     <div v-for="step in config.steps" :key="step.threshold"
                          class="flex items-center gap-3 transition-all duration-300"
-                         :class="{'opacity-100 translate-x-2': progress >= step.threshold, 'opacity-40': progress < step.threshold}">
-                        <i :class="['pi text-xs', progress >= step.threshold ? 'pi-check-circle text-[#2c4c52]' : 'pi-circle text-[#7bc5cd]']"></i>
+                         :class="{'opacity-100 translate-x-2': store.genProgress >= step.threshold, 'opacity-40': store.genProgress < step.threshold}">
+                        <i :class="['pi text-xs', store.genProgress >= step.threshold ? 'pi-check-circle text-[#2c4c52]' : 'pi-circle text-[#7bc5cd]']"></i>
                         <span class="font-mono text-xs font-bold uppercase tracking-wide">{{ step.message }}</span>
                     </div>
                 </div>
 
-                <div v-if="errorState" class="mt-6">
-                    <Button label="RETRY CONNECTION" icon="pi pi-refresh" class="p-button-danger p-button-outlined !font-bold" @click="generateRoadmap" />
+                <div v-if="store.genError" class="mt-6">
+                    <Button label="RETRY CONNECTION" icon="pi pi-refresh" class="p-button-danger p-button-outlined !font-bold" @click="triggerGeneration" />
                 </div>
 
             </div>
@@ -173,6 +125,6 @@ onUnmounted(() => {
     animation: scan 2s linear infinite;
 }
 :deep(.p-progressbar-value) {
-    background: transparent !important; /* Managed manually in template for gradient */
+    background: transparent !important;
 }
 </style>

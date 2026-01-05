@@ -7,45 +7,48 @@ const chartData = ref(null);
 const chartOptions = ref(null);
 
 function setChartData() {
-    const documentStyle = getComputedStyle(document.documentElement);
-
     return {
-        labels: ['Frontend Dev', 'Backend Dev', 'Full Stack', 'DevOps', 'Data Science'],
+        labels: ['Frontend', 'Backend', 'Full Stack', 'DevOps', 'Data'],
         datasets: [
             {
                 data: [30, 25, 20, 15, 10],
                 backgroundColor: [
-                    documentStyle.getPropertyValue('--p-blue-500'),
-                    documentStyle.getPropertyValue('--p-orange-500'),
-                    documentStyle.getPropertyValue('--p-green-500'),
-                    documentStyle.getPropertyValue('--p-purple-500'),
-                    documentStyle.getPropertyValue('--p-yellow-500')
+                    '#2c4c52', // Dark Teal
+                    '#4a7a82', // Medium Teal
+                    '#7bc5cd', // Light Teal
+                    '#a7e2e8', // Pale Cyan
+                    '#e0f2f1'  // White/Teal mix
                 ],
                 hoverBackgroundColor: [
-                    documentStyle.getPropertyValue('--p-blue-400'),
-                    documentStyle.getPropertyValue('--p-orange-400'),
-                    documentStyle.getPropertyValue('--p-green-400'),
-                    documentStyle.getPropertyValue('--p-purple-400'),
-                    documentStyle.getPropertyValue('--p-yellow-400')
-                ]
+                    '#1a3338',
+                    '#3b666d',
+                    '#5d9ca4',
+                    '#8ecfd6',
+                    '#ffffff'
+                ],
+                borderWidth: 0,
+                cutout: '65%'
             }
         ]
     };
 }
 
 function setChartOptions() {
-    const documentStyle = getComputedStyle(document.documentElement);
-    const textColor = documentStyle.getPropertyValue('--text-color');
+    const textColor = '#2c4c52';
 
     return {
         plugins: {
             legend: {
+                position: 'bottom',
                 labels: {
                     usePointStyle: true,
-                    color: textColor
+                    color: textColor,
+                    font: { family: 'monospace', weight: 'bold', size: 10 },
+                    padding: 20
                 }
             }
-        }
+        },
+        maintainAspectRatio: false
     };
 }
 
@@ -61,8 +64,14 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="card flex flex-col items-center">
-        <div class="font-semibold text-xl mb-4 self-start">Career Paths</div>
-        <Chart type="doughnut" :data="chartData" :options="chartOptions" class="w-full md:w-[30rem]" />
+    <div class="bg-white/40 backdrop-blur-xl border border-white/60 p-6 rounded-3xl shadow-sm h-full flex flex-col items-center justify-center relative">
+        <div class="absolute top-6 left-6">
+             <h4 class="font-black text-[#2c4c52] uppercase text-lg leading-none mb-1">Career Distribution</h4>
+             <span class="font-mono text-xs font-bold text-[#4a7a82] uppercase">Student Selection</span>
+        </div>
+
+        <div class="w-full h-64 mt-8">
+            <Chart type="doughnut" :data="chartData" :options="chartOptions" class="w-full h-full" />
+        </div>
     </div>
 </template>

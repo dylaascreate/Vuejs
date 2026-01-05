@@ -32,11 +32,11 @@ const model = ref([
     {
         label: 'Student',
         items: [
-{
-    label: 'Student Dashboard',
-    icon: 'pi pi-graduation-cap',
-    to: '/student/dashboard'
-},
+// {
+//     label: 'Student Dashboard',
+//     icon: 'pi pi-graduation-cap',
+//     to: '/student/dashboard'
+// },
 {
     label: 'My Roadmaps',
     icon: 'pi pi-fw pi-map',

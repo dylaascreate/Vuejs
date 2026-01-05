@@ -1,38 +1,41 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
+import { storeToRefs } from 'pinia';
+import { useSkillStore } from '@/stores/skill'; // Import the store
+
+// Import the widget
+import SkillRadarWidget from '@/components/devnexus/student/SkillRadarWidget.vue';
 
 const toast = useToast();
 const confirm = useConfirm();
+const skillStore = useSkillStore();
 
-// --- Data ---
-const skills = ref([
-    { id: 1, name: 'Vue.js', level: 85, category: 'Frontend', verified: true },
-    { id: 2, name: 'Tailwind CSS', level: 90, category: 'Frontend', verified: true },
-    { id: 3, name: 'Laravel', level: 60, category: 'Backend', verified: false },
-    { id: 4, name: 'Python', level: 75, category: 'Backend', verified: true },
-    { id: 5, name: 'Figma', level: 80, category: 'Design', verified: false },
-    { id: 6, name: 'Git/GitHub', level: 88, category: 'Tools', verified: true },
-    { id: 7, name: 'SQL', level: 65, category: 'Backend', verified: false },
-]);
+// Access state from store
+const { userSkills: skills, loading } = storeToRefs(skillStore);
 
 const categories = ['All', 'Frontend', 'Backend', 'Design', 'Tools'];
-const activeCategory = ref('All');
+const activeDomain = ref('All');
 const searchQuery = ref('');
 
 const skillDialog = ref(false);
-const skillForm = ref({ name: '', level: 50, category: 'Frontend' });
+const skillForm = ref({ name: '', proficiency: 50, domain: 'Frontend' });
 const isEditing = ref(false);
 
-const categoryOptions = ['Frontend', 'Backend', 'Design', 'Tools', 'Soft Skills'];
+const domainOptions = ['Frontend', 'Backend', 'Design', 'Tools', 'Soft Skills'];
+
+// --- Lifecycle ---
+onMounted(() => {
+    skillStore.fetchUserMatrix();
+});
 
 // --- Computed ---
 const filteredSkills = computed(() => {
-    let result = skills.value;
+    let result = skills.value || [];
 
-    if (activeCategory.value !== 'All') {
-        result = result.filter(s => s.category === activeCategory.value);
+    if (activeDomain.value !== 'All') {
+        result = result.filter(s => s.domain === activeDomain.value);
     }
 
     if (searchQuery.value) {
@@ -40,24 +43,25 @@ const filteredSkills = computed(() => {
         result = result.filter(s => s.name.toLowerCase().includes(query));
     }
 
-    // Sort by Level Descending
-    return result.sort((a, b) => b.level - a.level);
+    // Sort by proficiency Descending
+    return result.sort((a, b) => b.proficiency - a.proficiency);
 });
 
 const topSkills = computed(() => {
-    return [...skills.value].sort((a, b) => b.level - a.level).slice(0, 3);
+    return [...(skills.value || [])].sort((a, b) => b.proficiency - a.proficiency).slice(0, 3);
 });
 
 const totalMastery = computed(() => {
-    if (skills.value.length === 0) return 0;
-    const total = skills.value.reduce((acc, curr) => acc + curr.level, 0);
-    return Math.round(total / skills.value.length);
+    const list = skills.value || [];
+    if (list.length === 0) return 0;
+    const total = list.reduce((acc, curr) => acc + curr.proficiency, 0);
+    return Math.round(total / list.length);
 });
 
 // --- Actions ---
 const openNew = () => {
     isEditing.value = false;
-    skillForm.value = { name: '', level: 50, category: 'Frontend' };
+    skillForm.value = { name: '', proficiency: 50, domain: 'Frontend' };
     skillDialog.value = true;
 };
 
@@ -67,22 +71,35 @@ const editSkill = (skill) => {
     skillDialog.value = true;
 };
 
-const saveSkill = () => {
+const saveSkill = async () => {
+    // Basic validation
     if (!skillForm.value.name) return;
 
-    if (isEditing.value) {
-        const index = skills.value.findIndex(s => s.id === skillForm.value.id);
-        skills.value[index] = { ...skillForm.value };
-        toast.add({ severity: 'success', summary: 'Matrix Updated', detail: 'Skill parameters adjusted.', life: 3000 });
-    } else {
-        skills.value.push({
-            id: Date.now(),
-            ...skillForm.value,
-            verified: false
+    try {
+        // FIX: Map the correct properties from skillForm
+        const payload = {
+            name: skillForm.value.name,
+            proficiency: skillForm.value.proficiency, // Was 'level' (undefined)
+            domain: skillForm.value.domain            // Was 'category' (undefined)
+        };
+
+        // If we are editing an existing skill, use its ID.
+        // If we are adding a NEW skill, pass 'new' (or null, handled by store).
+        const idToUpdate = (isEditing.value && skillForm.value.id) ? skillForm.value.id : 'new';
+
+        await skillStore.updateUserSkill(idToUpdate, payload);
+
+        toast.add({
+            severity: 'success',
+            summary: isEditing.value ? 'Matrix Updated' : 'New Node',
+            detail: 'Skill parameters adjusted.',
+            life: 3000
         });
-        toast.add({ severity: 'success', summary: 'New Node', detail: 'Skill added to matrix.', life: 3000 });
+
+        skillDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to save skill.', life: 3000 });
     }
-    skillDialog.value = false;
 };
 
 const deleteSkill = (skill) => {
@@ -91,24 +108,28 @@ const deleteSkill = (skill) => {
         header: 'Confirm Deletion',
         icon: 'pi pi-exclamation-triangle',
         acceptClass: 'p-button-danger',
-        accept: () => {
-            skills.value = skills.value.filter(s => s.id !== skill.id);
-            toast.add({ severity: 'success', summary: 'Deleted', detail: 'Skill removed.', life: 3000 });
+        accept: async () => {
+            try {
+                await skillStore.removeUserSkill(skill.id);
+                toast.add({ severity: 'success', summary: 'Deleted', detail: 'Skill removed.', life: 3000 });
+            } catch (error) {
+                toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to remove skill.', life: 3000 });
+            }
         }
     });
 };
 
-const getLevelLabel = (level) => {
-    if (level >= 90) return 'MASTER';
-    if (level >= 75) return 'EXPERT';
-    if (level >= 50) return 'ADVANCED';
-    if (level >= 25) return 'INTERMEDIATE';
+const getProLabel = (proficiency) => {
+    if (proficiency >= 90) return 'MASTER';
+    if (proficiency >= 75) return 'EXPERT';
+    if (proficiency >= 50) return 'ADVANCED';
+    if (proficiency >= 25) return 'INTERMEDIATE';
     return 'NOVICE';
 };
 
-const getLevelColor = (level) => {
-    if (level >= 80) return '#4ade80'; // Green
-    if (level >= 50) return '#7bc5cd'; // Teal
+const getProColor = (proficiency) => {
+    if (proficiency >= 80) return '#4ade80'; // Green
+    if (proficiency >= 50) return '#7bc5cd'; // Teal
     return '#facc15'; // Yellow
 };
 </script>
@@ -145,11 +166,14 @@ const getLevelColor = (level) => {
             </div>
 
             <div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
-                <div class="bg-[#2c4c52] text-[#e0f2f1] p-6 rounded-3xl shadow-lg relative overflow-hidden">
+
+                <SkillRadarWidget />
+
+                <div class="bg-[#2c4c52] text-[#e0f2f1] p-6 rounded-3xl shadow-lg relative">
                     <div class="absolute top-0 right-0 p-4 opacity-10">
                         <i class="pi pi-star-fill text-6xl"></i>
                     </div>
-                    <h4 class="font-black text-lg uppercase mb-6 flex items-center gap-2 relative z-10">
+                    <h4 class="font-black !text-white text-lg uppercase mb-6 flex items-center gap-2 relative z-10">
                         <i class="pi pi-crown text-[#7bc5cd]"></i> Elite Skills
                     </h4>
 
@@ -161,10 +185,10 @@ const getLevelColor = (level) => {
                             <div class="flex-1">
                                 <div class="flex justify-between text-xs font-bold mb-1">
                                     <span>{{ skill.name }}</span>
-                                    <span class="text-[#7bc5cd]">{{ skill.level }}%</span>
+                                    <span class="text-[#7bc5cd]">{{ skill.proficiency }}%</span>
                                 </div>
                                 <div class="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                                    <div class="h-full bg-[#7bc5cd] rounded-full" :style="{ width: `${skill.level}%` }"></div>
+                                    <div class="h-full bg-[#7bc5cd] rounded-full" :style="{ width: `${skill.proficiency}%` }"></div>
                                 </div>
                             </div>
                         </div>
@@ -188,9 +212,9 @@ const getLevelColor = (level) => {
                 <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white/30 p-2 rounded-2xl border border-white/40">
                     <div class="flex flex-wrap gap-1">
                          <button v-for="cat in categories" :key="cat"
-                            @click="activeCategory = cat"
+                            @click="activeDomain = cat"
                             class="px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-300 uppercase tracking-wide"
-                            :class="activeCategory === cat ? 'bg-[#2c4c52] text-[#7bc5cd] shadow-sm' : 'text-[#4a7a82] hover:bg-white/50'">
+                            :class="activeDomain === cat ? 'bg-[#2c4c52] text-[#7bc5cd] shadow-sm' : 'text-[#4a7a82] hover:bg-white/50'">
                             {{ cat }}
                         </button>
                     </div>
@@ -213,7 +237,7 @@ const getLevelColor = (level) => {
                                 </div>
                                 <div>
                                     <h3 class="font-bold text-[#2c4c52] text-lg leading-none">{{ skill.name }}</h3>
-                                    <span class="text-[10px] font-mono text-[#4a7a82] uppercase">{{ skill.category }}</span>
+                                    <span class="text-[10px] font-mono text-[#4a7a82] uppercase">{{ skill.domain }}</span>
                                 </div>
                             </div>
                             <Button icon="pi pi-ellipsis-h" text rounded class="!text-[#2c4c52]/50 hover:!text-[#2c4c52]" @click="editSkill(skill)" />
@@ -222,14 +246,14 @@ const getLevelColor = (level) => {
                         <div class="mt-auto">
                             <div class="flex justify-between items-end mb-1">
                                 <span class="text-[10px] font-mono font-bold bg-[#2c4c52]/5 px-1.5 py-0.5 rounded"
-                                      :style="{ color: getLevelColor(skill.level) }">
-                                    {{ getLevelLabel(skill.level) }}
+                                      :style="{ color: getProColor(skill.proficiency) }">
+                                    {{ getProLabel(skill.proficiency) }}
                                 </span>
-                                <span class="font-black text-lg text-[#2c4c52]">{{ skill.level }}%</span>
+                                <span class="font-black text-lg text-[#2c4c52]">{{ skill.proficiency }}%</span>
                             </div>
                             <div class="h-2 w-full bg-[#2c4c52]/10 rounded-full overflow-hidden">
                                 <div class="h-full rounded-full transition-all duration-1000 ease-out"
-                                     :style="{ width: `${skill.level}%`, backgroundColor: getLevelColor(skill.level) }">
+                                     :style="{ width: `${skill.proficiency}%`, backgroundColor: getProColor(skill.proficiency) }">
                                 </div>
                             </div>
                         </div>
@@ -256,16 +280,16 @@ const getLevelColor = (level) => {
                 </div>
 
                 <div class="space-y-1">
-                    <label class="font-mono text-xs font-bold text-[#2c4c52] uppercase">Category</label>
-                    <Select v-model="skillForm.category" :options="categoryOptions" class="y2k-dropdown w-full !text-xs" />
+                    <label class="font-mono text-xs font-bold text-[#2c4c52] uppercase">domain</label>
+                    <Select v-model="skillForm.domain" :options="domainOptions" class="y2k-dropdown w-full !text-xs" />
                 </div>
 
                 <div class="space-y-2">
                     <div class="flex justify-between">
                         <label class="font-mono text-xs font-bold text-[#2c4c52] uppercase">Proficiency</label>
-                        <span class="font-bold text-[#7bc5cd]">{{ skillForm.level }}%</span>
+                        <span class="font-bold text-[#7bc5cd]">{{ skillForm.proficiency }}%</span>
                     </div>
-                    <Slider v-model="skillForm.level" class="w-full" />
+                    <Slider v-model="skillForm.proficiency" class="w-full" />
                 </div>
             </div>
 

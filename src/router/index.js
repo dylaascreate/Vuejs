@@ -134,11 +134,12 @@ const router = createRouter({
     component: () => import('@/views/pages/RoadmapLoading.vue')
 },
 {
-    path: '/student/roadmap-details',
+    path: '/student/roadmap-details/:id',
     name: 'roadmap-details',
     component: () => import('@/views/pages/RoadmapDetails.vue')
 },
 {
+    // path: '/student/roadmap-details-academic/:id',
     path: '/student/roadmap-details-academic',
     name: 'roadmap-details-academic',
     component: () => import('@/views/pages/RoadmapDetailsAcademic.vue')
@@ -246,6 +247,12 @@ const router = createRouter({
             path: '/auth/register',
             name: 'register',
             component: () => import('@/views/pages/auth/Register.vue'),
+            meta: {guest:true},
+        },
+        {
+            path: '/auth/reset-password',
+            name: 'reset-password',
+            component: () => import('@/views/pages/auth/ResetPassword.vue'),
             meta: {guest:true},
         },
         {

@@ -8,7 +8,7 @@ import StatsWidget from '@/components/dashboard/StatsWidget.vue';
 
 <template>
     <div class="grid grid-cols-12 gap-8 font-sans text-[#2c4c52]">
-        
+
         <div class="col-span-12 flex items-center justify-between mb-2">
             <div>
                 <h2 class="text-3xl font-black uppercase tracking-tighter text-[#2c4c52]">Command Center</h2>

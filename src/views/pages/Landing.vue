@@ -7,9 +7,9 @@ const { isDarkTheme } = useLayout();
 // Custom "Star" Icon based on your logo shape
 const StarIcon = {
     template: `
-        <svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 animate-pulse">
-            <path d="M12 0L14 10L24 12L14 14L12 24L10 14L0 12L10 10L12 0Z" />
-        </svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2L14.09 8.26L21 9.27L16 14.14L17.18 21.02L12 17.77L6.82 21.02L8 14.14L3 9.27L9.91 8.26L12 2Z" />
+    </svg>
     `
 };
 
@@ -74,9 +74,11 @@ const features = ref([
                 </p>
 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center md:justify-start pt-4">
+                    <router-link to="/auth/login">
                     <button class="y2k-brutalist-btn px-8 py-4 bg-[#2c4c52] text-white font-bold text-lg rounded-none hover:bg-[#1a3338] transition-all flex items-center justify-center gap-3">
                         <i class="pi pi-bolt"></i> GENERATE ROADMAP
                     </button>
+                    </router-link>
                     <button class="px-8 py-4 border-2 border-[#2c4c52] text-[#2c4c52] font-bold text-lg hover:bg-[#2c4c52] hover:text-white transition-all uppercase tracking-wider">
                         View Demo
                     </button>

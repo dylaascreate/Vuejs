@@ -8,10 +8,9 @@ const chartOptions = ref(null);
 const rankingType = ref('Careers');
 const rankingOptions = ref(['Careers', 'Skills', 'Courses']);
 
-// Mock Data
 const dataMap = {
     Careers: {
-        labels: ['Frontend Dev', 'Backend Dev', 'Data Scientist', 'DevOps Engineer', 'Product Manager'],
+        labels: ['Frontend', 'Backend', 'Data Sci', 'DevOps', 'Product'],
         data: [1200, 950, 800, 600, 450]
     },
     Skills: {
@@ -19,74 +18,61 @@ const dataMap = {
         data: [2500, 2100, 1800, 1500, 1200]
     },
     Courses: {
-        labels: ['Intro to CS', 'Web Development', 'Data Structures', 'Machine Learning', 'UX Design'],
+        labels: ['CS101', 'Web Dev', 'Data Struct', 'ML Basics', 'UX Design'],
         data: [3000, 2800, 2400, 2000, 1700]
     }
 };
 
 function setChartData() {
-    const documentStyle = getComputedStyle(document.documentElement);
     const selectedData = dataMap[rankingType.value];
 
     return {
         labels: selectedData.labels,
         datasets: [
             {
-                label: `Popularity (${rankingType.value})`,
-                backgroundColor: documentStyle.getPropertyValue('--p-indigo-500'),
-                borderColor: documentStyle.getPropertyValue('--p-indigo-500'),
+                label: `Popularity`,
+                backgroundColor: '#2c4c52',
+                hoverBackgroundColor: '#7bc5cd',
                 data: selectedData.data,
-                borderRadius: 4,
-                barPercentage: 0.6
+                borderRadius: 999, // Pill shape
+                barPercentage: 0.5,
+                borderSkipped: false
             }
         ]
     };
 }
 
 function setChartOptions() {
-    const documentStyle = getComputedStyle(document.documentElement);
-    const textColor = documentStyle.getPropertyValue('--text-color');
-    const surfaceBorder = documentStyle.getPropertyValue('--surface-border');
+    const textColor = '#2c4c52';
+    const surfaceBorder = 'rgba(44, 76, 82, 0.1)';
 
     return {
-        indexAxis: 'y', // Horizontal Bar Chart
+        indexAxis: 'y',
         maintainAspectRatio: false,
         aspectRatio: 0.8,
         plugins: {
-            legend: {
-                display: false 
-            },
+            legend: { display: false },
             tooltip: {
-                backgroundColor: documentStyle.getPropertyValue('--p-indigo-900'),
+                backgroundColor: '#2c4c52',
                 titleColor: '#ffffff',
-                bodyColor: '#ffffff'
+                bodyColor: '#7bc5cd',
+                padding: 10,
+                displayColors: false
             }
         },
         scales: {
             x: {
-                ticks: {
-                    color: textColor,
-                    font: { weight: 500 }
-                },
-                grid: {
-                    display: false,
-                    drawBorder: false
-                }
+                ticks: { color: textColor, font: { weight: 'bold', size: 10 } },
+                grid: { display: false, drawBorder: false }
             },
             y: {
-                ticks: {
-                    color: textColor
-                },
-                grid: {
-                    color: surfaceBorder,
-                    drawBorder: false
-                }
+                ticks: { color: textColor, font: { weight: 'bold' } },
+                grid: { color: surfaceBorder, drawBorder: false }
             }
         }
     };
 }
 
-// Watch for toggle changes
 watch(rankingType, () => {
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
@@ -104,14 +90,24 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="card h-full">
+    <div class="bg-white/40 backdrop-blur-xl border border-white/60 p-6 rounded-3xl shadow-sm h-full flex flex-col">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <div>
-                <h5 class="font-bold text-xl m-0 text-indigo-900 dark:text-indigo-100">Platform Rankings</h5>
-                <span class="text-sm text-muted-color">Top performers by category</span>
+                 <h4 class="font-black text-[#2c4c52] uppercase text-lg leading-none mb-1">Top Rankings</h4>
+                 <span class="font-mono text-xs font-bold text-[#4a7a82] uppercase">Performance Metrics</span>
             </div>
-            <SelectButton v-model="rankingType" :options="rankingOptions" aria-labelledby="basic" :allowEmpty="false" />
+            <SelectButton v-model="rankingType" :options="rankingOptions" :allowEmpty="false"
+                :pt="{
+                    root: { class: 'flex bg-[#2c4c52]/5 p-1 rounded-xl' },
+                    button: ({ context }) => ({
+                        class: [
+                            'px-3 py-1 text-xs font-bold rounded-lg transition-all',
+                            context.active ? 'bg-[#2c4c52] text-[#7bc5cd] shadow-sm' : 'text-[#4a7a82] hover:text-[#2c4c52]'
+                        ]
+                    })
+                }"
+            />
         </div>
-        <Chart type="bar" :data="chartData" :options="chartOptions" class="h-80" />
+        <Chart type="bar" :data="chartData" :options="chartOptions" class="h-80 w-full" />
     </div>
 </template>

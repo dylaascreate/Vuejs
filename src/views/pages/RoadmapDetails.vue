@@ -1,61 +1,81 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'; // Added computed
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import axios from 'axios';
 import { useToast } from 'primevue/usetoast';
+import { useRoadmapStore } from '@/stores/roadmap';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
+const roadmapStore = useRoadmapStore();
 
-const isLoading = ref(true);
-const roadmap = ref(null);
+// --- State Management ---
+
+// Map store state to local computed properties for the template
+const isLoading = computed(() => roadmapStore.loading);
+const roadmap = computed(() => roadmapStore.currentRoadmap);
+
+// Local UI State
 const taskDialog = ref(false);
 const isEditing = ref(false);
 const currentPhaseId = ref(null);
 const taskForm = ref({ id: null, title: '', subtitle: '' });
 
-// 1. Fetch Data
-const fetchRoadmap = async () => {
-    try {
-        const id = route.params.id;
-        const response = await axios.get(`/api/roadmap/${id}`);
-        roadmap.value = response.data.data || response.data;
-        isLoading.value = false;
-    } catch (error) {
-        console.error("Failed to load roadmap", error);
-        toast.add({ severity: 'error', summary: 'Error', detail: 'Roadmap not found.' });
-        router.push('/student/dashboard');
-    }
-};
+// --- Lifecycle ---
 
-onMounted(() => {
-    fetchRoadmap();
+onMounted(async () => {
+    const routeId = route.params.id;
+
+    // 1. Check if we already have this roadmap in memory (from the Loading screen)
+    if (roadmapStore.currentRoadmap && String(roadmapStore.currentRoadmap.id) === String(routeId)) {
+        console.log("Roadmap already loaded in store, skipping fetch.");
+        return; // <--- STOP HERE, use existing data
+    }
+
+    // 2. Only fetch if we don't have it (e.g., user refreshed the page)
+    if (routeId) {
+        try {
+            await roadmapStore.fetchRoadmap(routeId);
+        } catch (error) {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Roadmap not found.' });
+            router.push({ name: 'dashboard' });
+        }
+    }
 });
 
-// 2. Computed Stats (Safe Version)
+// --- Computed Stats ---
+
 const totalTasks = computed(() => {
-    if (!roadmap.value) return 0;
-    return roadmap.value.phases.reduce((acc, phase) => acc + phase.tasks.length, 0);
+    if (!roadmap.value || !roadmap.value.phases) return 0;
+    return roadmap.value.phases.reduce((acc, phase) => {
+        return acc + (phase.tasks ? phase.tasks.length : 0);
+    }, 0);
 });
 
 const progressPercentage = computed(() => {
-    if (!roadmap.value) return 0;
+    if (!roadmap.value || !roadmap.value.phases) return 0;
     let completed = 0;
     let total = 0;
+
     roadmap.value.phases.forEach(phase => {
-        phase.tasks.forEach(task => {
-            total++;
-            if (task.completed) completed++;
-        });
+        if (phase.tasks) {
+            phase.tasks.forEach(task => {
+                total++;
+                if (task.completed) completed++;
+            });
+        }
     });
+
     return total === 0 ? 0 : Math.round((completed / total) * 100);
 });
 
-// --- Actions (Kept exactly as yours) ---
+// --- Actions ---
+
 const completeRoadmap = () => {
+    // You might want to call a store action here in the future
+    // await roadmapStore.completeRoadmap(roadmap.value.id);
     toast.add({ severity: 'success', summary: 'Course Completed! 🎉', detail: 'Excellent work. Returning to dashboard...', life: 3000 });
-    setTimeout(() => { router.push('/student/roadmaps'); }, 1500);
+    setTimeout(() => { router.push({ name: 'dashboard' }); }, 1500);
 };
 
 const openAddTask = (phaseId) => {
@@ -72,23 +92,36 @@ const openEditTask = (task, phaseId) => {
     taskDialog.value = true;
 };
 
+// Note: These changes update the Store state in memory (client-side only).
+// To persist, you would add an action in the store like `roadmapStore.addTask(payload)`
 const saveTask = () => {
     if (!taskForm.value.title.trim()) {
         toast.add({ severity: 'error', summary: 'Error', detail: 'Task title is required.', life: 2000 });
         return;
     }
+
+    // We access the store data via roadmap.value
     const phase = roadmap.value.phases.find(p => p.id === currentPhaseId.value);
     if (!phase) return;
 
     if (isEditing.value) {
         const taskIndex = phase.tasks.findIndex(t => t.id === taskForm.value.id);
         if (taskIndex !== -1) {
+            // Update the task in the store state
             phase.tasks[taskIndex].title = taskForm.value.title;
             phase.tasks[taskIndex].subtitle = taskForm.value.subtitle;
             toast.add({ severity: 'success', summary: 'Updated', detail: 'Task modified.', life: 2000 });
         }
     } else {
-        phase.tasks.push({ id: Date.now(), title: taskForm.value.title, subtitle: taskForm.value.subtitle, completed: false });
+        // Add new task to the store state
+        if (!phase.tasks) phase.tasks = [];
+        phase.tasks.push({
+            id: Date.now(), // Temporary ID
+            title: taskForm.value.title,
+            subtitle: taskForm.value.subtitle,
+            completed: false,
+            order_index: phase.tasks.length + 1
+        });
         toast.add({ severity: 'success', summary: 'Added', detail: 'New task created.', life: 2000 });
     }
     taskDialog.value = false;
@@ -99,7 +132,7 @@ const handleRowClick = (task) => {
     toggleTask(task);
 };
 
-const toggleTask = (task) => {
+const toggleTask = async (task) => {
     if (task.completed) {
         if (progressPercentage.value === 100) {
             toast.add({ severity: 'success', summary: 'All Tasks Done', detail: 'You are ready to complete the course!', life: 3000 });
@@ -107,11 +140,18 @@ const toggleTask = (task) => {
             toast.add({ severity: 'success', summary: 'Progress Saved', detail: 'Marked as complete.', life: 1000 });
         }
     }
+
+    // Example: Trigger store update if you have the API ready
+    // try {
+    //    await roadmapStore.updateTaskStatus(task.id, task.completed);
+    // } catch (e) { ... }
 };
 
 const startRoadmap = () => {
     toast.add({ severity: 'info', summary: 'Roadmap Activated', detail: 'Added to your active learning paths.', life: 3000 });
+    // roadmapStore.activateRoadmap(roadmap.value.id);
 };
+
 </script>
 
 <template>
@@ -167,7 +207,7 @@ const startRoadmap = () => {
             </div>
         </div>
 
-        <div v-else class="relative z-10 p-4 max-w-5xl mx-auto flex flex-col gap-8">
+        <div v-else class="relative z-10 p-4 max-w-5xl mx-auto flex flex-col gap-8" ref="contentToExport">
 
             <div class="bg-white/60 backdrop-blur-xl border border-white/60 p-8 rounded-3xl shadow-sm relative overflow-hidden">
                 <div class="absolute -right-10 -top-10 w-64 h-64 bg-[#7bc5cd]/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -178,9 +218,9 @@ const startRoadmap = () => {
                             <i class="pi pi-compass text-xs"></i>
                             <span class="font-mono text-xs font-bold text-[#2c4c52]/70 tracking-widest uppercase">GENERATED_PATH_V1</span>
                         </div>
-                        <h1 class="text-4xl font-black text-[#2c4c52] uppercase tracking-tighter mb-2">{{ roadmap.career_role }}</h1>
+                        <h1 class="text-4xl font-black text-[#2c4c52] uppercase tracking-tighter mb-2">{{ roadmap.title }}</h1>
                         <p class="text-[#4a7a82] font-medium max-w-xl">
-                            A structural guide to achieving competency in {{ roadmap.career_role }}.
+                            A structural guide to achieving competency in {{ roadmap.goal }}.
                             Follow the phases sequentially.
                         </p>
                     </div>
@@ -284,7 +324,7 @@ const startRoadmap = () => {
                             <p class="text-sm text-[#7bc5cd] mb-6">Add this roadmap to your active dashboard.</p>
                             <div class="flex flex-col gap-3">
                                 <Button label="START LEARNING" icon="pi pi-play" class="y2k-button-primary-dark w-full !text-xs" @click="startRoadmap" />
-                                <Button label="EXPORT PDF" icon="pi pi-download" class="y2k-button-secondary-dark w-full !text-xs" />
+                                <Button label="EXPORT PDF" icon="pi pi-download" class="y2k-button-secondary-dark w-full !text-xs" @click="exportToPDF" />
                             </div>
                         </div>
                         <div class="bg-white/40 backdrop-blur-md border border-white/60 p-6 rounded-3xl">
