@@ -1,14 +1,30 @@
-import './assets/main.css'
-
-import { createApp } from 'vue'
+import { createApp } from 'vue';
 import { createPinia } from 'pinia'
+import App from './App.vue';
+import router from './router';
 
-import App from './App.vue'
-import router from './router'
+import Aura from '@primeuix/themes/aura';
+import PrimeVue from 'primevue/config';
+import ConfirmationService from 'primevue/confirmationservice';
+import ToastService from 'primevue/toastservice';
+import Skeleton from 'primevue/skeleton';
 
-const app = createApp(App)
+import '@/assets/tailwind.css';
+import '@/assets/styles.scss';
+
+const app = createApp(App);
 
 app.use(createPinia())
-app.use(router)
+app.use(router);
+app.use(PrimeVue, {
+    theme: {
+        preset: Aura,
+        options: {
+            darkModeSelector: '.app-dark'
+        }
+    }
+});
+app.use(ToastService);
+app.use(ConfirmationService);
 
-app.mount('#app')
+app.mount('#app');
