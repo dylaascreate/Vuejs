@@ -138,12 +138,12 @@ const router = createRouter({
     name: 'roadmap-details',
     component: () => import('@/views/pages/RoadmapDetails.vue')
 },
-{
+// {
     // path: '/student/roadmap-details-academic/:id',
-    path: '/student/roadmap-details-academic',
-    name: 'roadmap-details-academic',
-    component: () => import('@/views/pages/RoadmapDetailsAcademic.vue')
-},
+    // path: '/student/roadmap-details-academic',
+    // name: 'roadmap-details-academic',
+    // component: () => import('@/views/pages/RoadmapDetailsAcademic.vue')
+// },
 {
     path: '/student/roadmaps',
     name: 'student-roadmaps',
@@ -221,7 +221,13 @@ const router = createRouter({
             path: '/landing',
             name: 'landing',
             component: () => import('@/views/pages/Landing.vue')
-        },{
+        },
+        {
+            path: '/matrix',
+            name: 'matrix',
+            component: () => import('@/views/pages/Matrix.vue')
+        },
+        {
             path: '/status',
             name: 'status',
             component: () => import('@/views/pages/SystemStatus.vue')

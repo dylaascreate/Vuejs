@@ -24,6 +24,7 @@ export const useRoadmapStore = defineStore('roadmap', {
     },
 
     actions: {
+
         // --- Fetch List (e.g., for StudentRoadmapList or Admin tables) ---
         async fetchRoadmaps(params = {}) {
             this.loading = true;
@@ -109,6 +110,29 @@ export const useRoadmapStore = defineStore('roadmap', {
                 throw error;
             } finally {
                 this.loading = false;
+            }
+        },
+        // src/stores/roadmap.js
+        async archiveRoadmap(id) {
+            try {
+                // Send the status update to Laravel
+                const response = await axios.patch(`/api/roadmaps/${id}`, {
+                    status: 'archived'
+                });
+
+                // Update the local state so the UI reflects the change immediately
+                if (this.currentRoadmap && this.currentRoadmap.id === id) {
+                    this.currentRoadmap.status = 'archived';
+                }
+
+                // Update the list as well
+                const index = this.allRoadmaps.findIndex(r => r.id === id);
+                if (index !== -1) {
+                    this.allRoadmaps[index].status = 'archived';
+                }
+            } catch (error) {
+                console.error("Archiving failed:", error);
+                throw error;
             }
         },
 

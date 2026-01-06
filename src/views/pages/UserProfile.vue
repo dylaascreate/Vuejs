@@ -94,7 +94,7 @@ const logout = async () =>{
                 </div>
 
                 <div class="card p-6">
-                    <h4 class="font-black text-xs uppercase tracking-widest mb-6 text-[#7bc5cd]">Skill_Matrix</h4>
+                    <h4 class="font-black text-xs uppercase tracking-widest mb-6 text-[#7bc5cd]">Matrix</h4>
                     <div class="space-y-4">
                         <div v-for="skill in skills" :key="skill.name">
                             <div class="flex justify-between text-[10px] font-bold uppercase mb-1">

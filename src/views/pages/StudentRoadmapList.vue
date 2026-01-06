@@ -44,12 +44,7 @@ const filteredRoadmaps = computed(() => {
 // --- Actions ---
 const navigateToRoadmap = (roadmap) => {
     roadmapStore.$patch({ activeRoadmap: roadmap });
-
-    if (roadmap.type === 'Academic' || roadmap.type === 'ACADEMIC_SYNC') {
-        router.push(`/student/roadmap-details-academic/${roadmap.id}`);
-    } else {
         router.push(`/student/roadmap-details/${roadmap.id}`);
-    }
 };
 
 const openSkillsModal = (roadmap) => {

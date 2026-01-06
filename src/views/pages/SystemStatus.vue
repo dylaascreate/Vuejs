@@ -68,7 +68,7 @@ const services = ref([
     { id: 'cv', name: 'CV Evaluator', icon: 'pi-file-check', status: 'unknown', latency: 0 },
     { id: 'quiz', name: 'Quiz Generator', icon: 'pi-question-circle', status: 'unknown', latency: 0 },
     { id: 'chat', name: 'AI Chat Helper', icon: 'pi-comments', status: 'unknown', latency: 0 },
-    { id: 'skill', name: 'Skill Recommender', icon: 'pi-bolt', status: 'unknown', latency: 0 },
+    // { id: 'skill', name: 'Skill Recommender', icon: 'pi-bolt', status: 'unknown', latency: 0 },
     // These specific services are not in monitor.py yet, so they will default to unknown
     { id: 'career', name: 'Career Recommender', icon: 'pi-compass', status: 'unknown', latency: 0 },
     { id: 'gap_analysis', name: 'Skill Gap Analyzer', icon: 'pi-chart-bar', status: 'unknown', latency: 0 },

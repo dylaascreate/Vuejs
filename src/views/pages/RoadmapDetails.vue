@@ -27,10 +27,10 @@ onMounted(async () => {
     const routeId = route.params.id;
 
     // 1. Check if we already have this roadmap in memory (from the Loading screen)
-    if (roadmapStore.currentRoadmap && String(roadmapStore.currentRoadmap.id) === String(routeId)) {
-        console.log("Roadmap already loaded in store, skipping fetch.");
-        return; // <--- STOP HERE, use existing data
-    }
+    // if (roadmapStore.currentRoadmap && String(roadmapStore.currentRoadmap.id) === String(routeId)) {
+    //     console.log("Roadmap already loaded in store, skipping fetch.");
+    //     return; // <--- STOP HERE, use existing data
+    // }
 
     // 2. Only fetch if we don't have it (e.g., user refreshed the page)
     if (routeId) {
@@ -38,7 +38,7 @@ onMounted(async () => {
             await roadmapStore.fetchRoadmap(routeId);
         } catch (error) {
             toast.add({ severity: 'error', summary: 'Error', detail: 'Roadmap not found.' });
-            router.push({ name: 'dashboard' });
+            router.push({ name: 'student-roadmaps' });
         }
     }
 });
@@ -218,9 +218,9 @@ const startRoadmap = () => {
                             <i class="pi pi-compass text-xs"></i>
                             <span class="font-mono text-xs font-bold text-[#2c4c52]/70 tracking-widest uppercase">GENERATED_PATH_V1</span>
                         </div>
-                        <h1 class="text-4xl font-black text-[#2c4c52] uppercase tracking-tighter mb-2">{{ roadmap.title }}</h1>
+                        <h1 class="text-4xl font-black text-[#2c4c52] uppercase tracking-tighter mb-2">{{ roadmap?.title }}</h1>
                         <p class="text-[#4a7a82] font-medium max-w-xl">
-                            A structural guide to achieving competency in {{ roadmap.goal }}.
+                            A structural guide to achieving competency in {{ roadmap?.goal }}.
                             Follow the phases sequentially.
                         </p>
                     </div>
@@ -320,13 +320,36 @@ const startRoadmap = () => {
                         </div>
 
                         <div class="bg-[#2c4c52] text-white p-6 rounded-3xl shadow-xl mb-6">
-                            <h4 class="font-black !text-white uppercase text-lg mb-2">Commit to Path</h4>
-                            <p class="text-sm text-[#7bc5cd] mb-6">Add this roadmap to your active dashboard.</p>
-                            <div class="flex flex-col gap-3">
-                                <Button label="START LEARNING" icon="pi pi-play" class="y2k-button-primary-dark w-full !text-xs" @click="startRoadmap" />
-                                <Button label="EXPORT PDF" icon="pi pi-download" class="y2k-button-secondary-dark w-full !text-xs" @click="exportToPDF" />
-                            </div>
-                        </div>
+    <h4 class="font-black !text-white uppercase text-lg mb-2">
+        {{ roadmap.status === 'completed' ? 'Protocol Archive' : 'Commit to Path' }}
+    </h4>
+    <p class="text-sm text-[#7bc5cd] mb-6 font-medium">
+        {{ roadmap.status === 'completed'
+            ? 'All tasks decoded. Move this protocol to the archive registry?'
+            : 'Add this roadmap to your active dashboard.'
+        }}
+    </p>
+
+    <div class="flex flex-col gap-3">
+        <Button
+            v-if="roadmap.status === 'completed'"
+            label="ARCHIVE PROTOCOL"
+            icon="pi pi-box"
+            class="y2k-button-secondary-dark w-full !text-xs !py-3 !border-[#7bc5cd]/30"
+            @click="archiveRoadmap"
+        />
+
+        <Button
+            v-else
+            label="START LEARNING"
+            icon="pi pi-play"
+            class="y2k-button-primary-dark w-full !text-xs"
+            @click="startRoadmap"
+        />
+
+        <Button label="EXPORT PDF" icon="pi pi-download" class="y2k-button-secondary-dark w-full !text-xs" @click="exportToPDF" />
+    </div>
+</div>
                         <div class="bg-white/40 backdrop-blur-md border border-white/60 p-6 rounded-3xl">
                              <h4 class="font-bold text-[#2c4c52] text-sm uppercase mb-4 flex items-center gap-2">
                                 <i class="pi pi-info-circle"></i> Roadmap Info

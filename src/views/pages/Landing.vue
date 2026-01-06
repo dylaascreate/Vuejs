@@ -41,7 +41,7 @@ const features = ref([
             </div>
 
             <div class="hidden md:flex gap-8 font-mono text-sm font-bold tracking-widest text-[#2c4c52]/80">
-                <a href="#matrix" class="hover:text-[#2c4c52] hover:underline decoration-2 underline-offset-4 transition-all">MATRIX</a>
+                <a href="/matrix" class="hover:text-[#2c4c52] hover:underline decoration-2 underline-offset-4 transition-all">MATRIX</a>
                 <a href="#modules" class="hover:text-[#2c4c52] hover:underline decoration-2 underline-offset-4 transition-all">MODULES</a>
                 <a href="/contact" class="hover:text-[#2c4c52] hover:underline decoration-2 underline-offset-4 transition-all">CONNECT</a>
             </div>

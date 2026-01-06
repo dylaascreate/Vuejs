@@ -1,24 +1,35 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useLayout } from '@/layout/composables/layout';
+import { useRoadmapStore } from '@/stores/roadmap'; // Import store
+import { storeToRefs } from 'pinia';
 
 const { getPrimary, getSurface, isDarkTheme } = useLayout();
+const roadmapStore = useRoadmapStore();
+
+// 1. Access the list of roadmaps from the store
+const { allRoadmaps } = storeToRefs(roadmapStore);
+
 const chartData = ref(null);
 const chartOptions = ref(null);
 
-// Mock Data
-const statusCounts = {
-    active: 3,
-    completed: 1,
-    archived: 1
-};
+// 2. Computed status counts based on real store data
+const statusCounts = computed(() => {
+    const list = allRoadmaps.value || [];
+    return {
+        active: list.filter(r => r.status?.toLowerCase() === 'active').length,
+        completed: list.filter(r => r.status?.toLowerCase() === 'completed' || r.status?.toLowerCase() === 'complete').length,
+        archived: list.filter(r => r.status?.toLowerCase() === 'archived').length
+    };
+});
 
 function setChartData() {
     return {
         labels: ['Active', 'Completed', 'Archived'],
         datasets: [
             {
-                data: [statusCounts.active, statusCounts.completed, statusCounts.archived],
+                // 3. Bind data to the computed statusCounts
+                data: [statusCounts.value.active, statusCounts.value.completed, statusCounts.value.archived],
                 backgroundColor: [
                     '#7bc5cd', // Light Teal (Active)
                     '#2c4c52', // Dark Cyan (Completed)
@@ -37,12 +48,10 @@ function setChartData() {
 }
 
 function setChartOptions() {
-    const textColor = '#2c4c52';
-
     return {
         plugins: {
             legend: {
-                display: false // Hidden to keep it compact next to title
+                display: false
             },
             tooltip: {
                 enabled: true
@@ -52,12 +61,17 @@ function setChartOptions() {
     };
 }
 
-watch([getPrimary, getSurface, isDarkTheme], () => {
+// 4. Watch for roadmap changes to update the chart visually
+watch([allRoadmaps, getPrimary, getSurface, isDarkTheme], () => {
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
-});
+}, { deep: true });
 
 onMounted(() => {
+    // Ensure data is fetched if it hasn't been already
+    if (allRoadmaps.value.length === 0) {
+        roadmapStore.fetchRoadmaps();
+    }
     chartData.value = setChartData();
     chartOptions.value = setChartOptions();
 });
