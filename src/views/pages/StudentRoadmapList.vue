@@ -43,8 +43,18 @@ const filteredRoadmaps = computed(() => {
 
 // --- Actions ---
 const navigateToRoadmap = (roadmap) => {
+    // 1. Update store state
     roadmapStore.$patch({ activeRoadmap: roadmap });
+
+    // 2. Check Type and Redirect accordingly
+    if (roadmap.type && roadmap.type.toLowerCase() === 'academic') {
+        // Route for Academic Roadmaps
+        // Ensure you have this route defined in your router/index.js
+        router.push(`/student/roadmap-details-academic/${roadmap.id}`); 
+    } else {
+        // Route for General/Standard Roadmaps
         router.push(`/student/roadmap-details/${roadmap.id}`);
+    }
 };
 
 const openSkillsModal = (roadmap) => {
@@ -86,6 +96,29 @@ const getStatusClasses = (status) => {
       return 'bg-gray-50 border-[#2c4c52]/20 text-[#2c4c52]/70 hover:bg-gray-200';
   }
 };
+// --- New State ---
+const userSkills = computed(() => roadmapStore.userSkills || []); // Assume store has this
+
+// --- Actions ---
+const hasSkill = (skillName) => {
+    return userSkills.value.some(s => s.name.toLowerCase() === skillName.toLowerCase());
+};
+
+const toggleSkillToProfile = async (skillName) => {
+    if (hasSkill(skillName)) return; // Don't add if already exists
+
+    try {
+        await roadmapStore.addSkillToProfile(skillName);
+        toast.add({
+            severity: 'success',
+            summary: 'SKILL_ACQUIRED',
+            detail: `${skillName} added to your profile at 1% proficiency.`,
+            life: 3000
+        });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'SYNC_ERROR', detail: 'Could not update profile.' });
+    }
+};
 </script>
 
 <template>
@@ -114,6 +147,16 @@ const getStatusClasses = (status) => {
                     </div>
                 </div>
                 <RoadmapStatusWidget />
+            </div>
+            <div class="col-span-12 md:col-span-6 lg:col-span-4">
+                <div class="h-full min-h-[16rem] border-2 border-dashed border-[#2c4c52]/20 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:bg-[#7bc5cd]/10 hover:border-[#7bc5cd] transition-all group"
+                     @click="router.push('/student/roadmap-generator')">
+                    <div class="w-16 h-16 rounded-full bg-[#2c4c52] flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform">
+                        <i class="pi pi-plus text-2xl text-[#7bc5cd]"></i>
+                    </div>
+                    <span class="font-black text-lg text-[#2c4c52] uppercase">Initialize New Path</span>
+                    <span class="text-xs font-mono text-[#2c4c52]/60 mt-1">START_NEW_PROTOCOL</span>
+                </div>
             </div>
 
             <template v-if="isLoading">
@@ -162,7 +205,7 @@ const getStatusClasses = (status) => {
                             </div>
 
                             <h3 class="text-xl font-black text-[#2c4c52] mb-1 leading-tight line-clamp-1">{{ item.title }}</h3>
-                            <span class="text-xs font-mono text-[#7bc5cd] font-bold block mb-4">TARGET: {{ item.career_role || 'Software Engineer' }}</span>
+                            <span class="text-xs font-mono text-[#7bc5cd] font-bold block mb-4">TARGET: {{ item.career_goal || 'Software Engineer' }}</span>
 
                             <div class="mb-4">
                                 <div class="flex justify-between mb-1">
@@ -194,16 +237,7 @@ const getStatusClasses = (status) => {
                 </div>
             </template>
 
-            <div class="col-span-12 md:col-span-6 lg:col-span-4">
-                <div class="h-full min-h-[16rem] border-2 border-dashed border-[#2c4c52]/20 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:bg-[#7bc5cd]/10 hover:border-[#7bc5cd] transition-all group"
-                     @click="router.push('/student/roadmap-generator')">
-                    <div class="w-16 h-16 rounded-full bg-[#2c4c52] flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform">
-                        <i class="pi pi-plus text-2xl text-[#7bc5cd]"></i>
-                    </div>
-                    <span class="font-black text-lg text-[#2c4c52] uppercase">Initialize New Path</span>
-                    <span class="text-xs font-mono text-[#2c4c52]/60 mt-1">START_NEW_PROTOCOL</span>
-                </div>
-            </div>
+            
         </div>
 
         <Dialog v-model:visible="displaySkillsDialog" modal :style="{ width: '50vw' }" :breakpoints="{ '960px': '75vw', '641px': '90vw' }"

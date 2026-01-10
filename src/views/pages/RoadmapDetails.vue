@@ -3,12 +3,15 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { useRoadmapStore } from '@/stores/roadmap';
+import jsPDF from 'jspdf';
+import { toPng } from 'html-to-image';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const roadmapStore = useRoadmapStore();
-
+const contentToExport = ref(null);
+const isExporting = ref(false);
 // --- State Management ---
 
 // Map store state to local computed properties for the template
@@ -52,30 +55,32 @@ const totalTasks = computed(() => {
     }, 0);
 });
 
-const progressPercentage = computed(() => {
-    if (!roadmap.value || !roadmap.value.phases) return 0;
-    let completed = 0;
-    let total = 0;
-
-    roadmap.value.phases.forEach(phase => {
-        if (phase.tasks) {
-            phase.tasks.forEach(task => {
-                total++;
-                if (task.completed) completed++;
-            });
-        }
-    });
-
-    return total === 0 ? 0 : Math.round((completed / total) * 100);
-});
-
 // --- Actions ---
 
-const completeRoadmap = () => {
-    // You might want to call a store action here in the future
-    // await roadmapStore.completeRoadmap(roadmap.value.id);
-    toast.add({ severity: 'success', summary: 'Course Completed! 🎉', detail: 'Excellent work. Returning to dashboard...', life: 3000 });
-    setTimeout(() => { router.push({ name: 'dashboard' }); }, 1500);
+const completeRoadmap = async () => {
+    try {
+        // 1. Tell the database this roadmap is finished
+        await roadmapStore.updateRoadmapStatus(roadmap.value.id, 'completed');
+
+        toast.add({
+            severity: 'success',
+            summary: 'PROTOCOL_COMPLETE',
+            detail: 'Status updated to completed.',
+            life: 3000
+        });
+
+        // NOTE: We do NOT redirect anymore.
+        // Because roadmap.status is now 'completed', the template's
+        // v-if/v-else logic will automatically show the "ARCHIVE" button.
+
+    } catch (error) {
+        toast.add({
+            severity: 'error',
+            summary: 'Update Failed',
+            detail: 'Could not reach the registry server.',
+            life: 3000
+        });
+    }
 };
 
 const openAddTask = (phaseId) => {
@@ -92,69 +97,252 @@ const openEditTask = (task, phaseId) => {
     taskDialog.value = true;
 };
 
-// Note: These changes update the Store state in memory (client-side only).
-// To persist, you would add an action in the store like `roadmapStore.addTask(payload)`
-const saveTask = () => {
-    if (!taskForm.value.title.trim()) {
-        toast.add({ severity: 'error', summary: 'Error', detail: 'Task title is required.', life: 2000 });
-        return;
-    }
-
-    // We access the store data via roadmap.value
-    const phase = roadmap.value.phases.find(p => p.id === currentPhaseId.value);
-    if (!phase) return;
-
-    if (isEditing.value) {
-        const taskIndex = phase.tasks.findIndex(t => t.id === taskForm.value.id);
-        if (taskIndex !== -1) {
-            // Update the task in the store state
-            phase.tasks[taskIndex].title = taskForm.value.title;
-            phase.tasks[taskIndex].subtitle = taskForm.value.subtitle;
-            toast.add({ severity: 'success', summary: 'Updated', detail: 'Task modified.', life: 2000 });
-        }
-    } else {
-        // Add new task to the store state
-        if (!phase.tasks) phase.tasks = [];
-        phase.tasks.push({
-            id: Date.now(), // Temporary ID
-            title: taskForm.value.title,
-            subtitle: taskForm.value.subtitle,
-            completed: false,
-            order_index: phase.tasks.length + 1
-        });
-        toast.add({ severity: 'success', summary: 'Added', detail: 'New task created.', life: 2000 });
-    }
-    taskDialog.value = false;
-};
-
 const handleRowClick = (task) => {
     task.completed = !task.completed;
     toggleTask(task);
 };
 
+const startRoadmap = async () => {
+    try {
+        await roadmapStore.startAndResetRoadmap(roadmap.value.id);
+
+        toast.add({
+            severity: 'success',
+            summary: 'PROTOCOL_ACTIVATED',
+            detail: 'Status: ACTIVE. Progress: 0%. All tasks reset.',
+            life: 3000
+        });
+    } catch (error) {
+        toast.add({
+            severity: 'error',
+            summary: 'System Error',
+            detail: 'Could not initialize protocol.',
+            life: 3000
+        });
+    }
+};
+
+// Keep the computed property pure
+const progressPercentage = computed(() => {
+    if (!roadmap.value?.phases) return 0;
+    let completed = 0;
+    let total = 0;
+
+    roadmap.value.phases.forEach(phase => {
+        phase.tasks?.forEach(task => {
+            total++;
+            if (task.completed) completed++;
+        });
+    });
+
+    return total === 0 ? 0 : Math.round((completed / total) * 100);
+});
+
+// Update the store value when the action happens
 const toggleTask = async (task) => {
-    if (task.completed) {
-        if (progressPercentage.value === 100) {
-            toast.add({ severity: 'success', summary: 'All Tasks Done', detail: 'You are ready to complete the course!', life: 3000 });
-        } else {
-            toast.add({ severity: 'success', summary: 'Progress Saved', detail: 'Marked as complete.', life: 1000 });
-        }
+    try {
+        // 1. Instantly update the store's progress for the Dashboard (Optimistic UI)
+        roadmap.value.progress = progressPercentage.value;
+
+        // 2. Sync Task with Database
+        await roadmapStore.updateTaskStatus(task.id, task.completed);
+
+        // 3. Optional: Sync Roadmap Progress with Database
+        // await roadmapStore.updateRoadmapProgress(roadmap.value.id, progressPercentage.value);
+
+        toast.add({ severity: 'success', summary: 'Task Progress Update', detail: 'Progress saved.', life: 1000 });
+    } catch (error) {
+        // Revert if error
+        task.completed = !task.completed;
+        roadmap.value.progress = progressPercentage.value;
+        toast.add({ severity: 'error', summary: 'Update Error', detail: 'Could not save.' });
+    }
+};
+const saveTask = async () => {
+    // 1. Basic Validation
+    if (!taskForm.value.title.trim()) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Task title is required.', life: 2000 });
+        return;
     }
 
-    // Example: Trigger store update if you have the API ready
-    // try {
-    //    await roadmapStore.updateTaskStatus(task.id, task.completed);
-    // } catch (e) { ... }
-};
+    // 2. Locate the specific phase in memory
+    const phase = roadmap.value.phases.find(p => p.id === currentPhaseId.value);
+    if (!phase) return;
 
-const startRoadmap = () => {
-    toast.add({ severity: 'info', summary: 'Roadmap Activated', detail: 'Added to your active learning paths.', life: 3000 });
-    // roadmapStore.activateRoadmap(roadmap.value.id);
-};
+    try {
+        if (isEditing.value) {
+            // --- SCENARIO A: EDITING EXISTING TASK ---
+            
+            // 1. Send update to API via Store
+            await roadmapStore.updateTaskDetails(taskForm.value.id, {
+                title: taskForm.value.title,
+                subtitle: taskForm.value.subtitle
+            });
 
+            // 2. Update Local State (Optimistic or Response-based)
+            const task = phase.tasks.find(t => t.id === taskForm.value.id);
+            if (task) {
+                task.title = taskForm.value.title;
+                task.subtitle = taskForm.value.subtitle;
+            }
+
+            toast.add({ severity: 'success', summary: 'Updated', detail: 'Task modified successfully.', life: 2000 });
+
+        } else {
+            // --- SCENARIO B: CREATING NEW TASK ---
+
+            // 1. Prepare Payload
+            const newTaskPayload = {
+                title: taskForm.value.title,
+                subtitle: taskForm.value.subtitle,
+                order_index: phase.tasks ? phase.tasks.length + 1 : 1
+            };
+
+            // 2. Send to API via Store (Store should return the created object with the real DB ID)
+            const createdTask = await roadmapStore.addTask(currentPhaseId.value, newTaskPayload);
+
+            // 3. Push the REAL created task (with ID) to local state
+            if (!phase.tasks) phase.tasks = [];
+            
+            // If the store returns the full object, use it. Otherwise fall back to optimistic.
+            if (createdTask) {
+                phase.tasks.push(createdTask);
+            } else {
+                // Fallback (Not recommended, but prevents crash if store doesn't return data)
+                phase.tasks.push({
+                    ...newTaskPayload,
+                    id: Date.now(), 
+                    completed: false
+                });
+            }
+
+            toast.add({ severity: 'success', summary: 'Added', detail: 'New task created.', life: 2000 });
+        }
+
+        // Close Dialog on success
+        taskDialog.value = false;
+
+    } catch (error) {
+        console.error(error);
+        toast.add({ 
+            severity: 'error', 
+            summary: 'Save Failed', 
+            detail: 'Could not save changes to the server.' 
+        });
+    }
+};
+const archiveRoadmap = async () => {
+    try {
+        // 1. Trigger the store action
+        await roadmapStore.updateRoadmapStatus(roadmap.value.id, 'archived');
+
+        toast.add({
+            severity: 'info',
+            summary: 'Protocol Archived',
+            detail: 'Moving to secure registry...',
+            life: 3000
+        });
+
+        // 2. Redirect to dashboard after a short delay
+        setTimeout(() => {
+            router.push({ name: 'student-roadmaps' });
+        }, 1500);
+
+    } catch (error) {
+        toast.add({
+            severity: 'error',
+            summary: 'Archive Failed',
+            detail: 'System could not update status.',
+            life: 3000
+        });
+    }
+};
+// --- PDF EXPORT FUNCTION ---
+const exportToPDF = async () => {
+    if (!contentToExport.value) return;
+
+    // 1. Start Animation
+    isExporting.value = true;
+
+    try {
+        // 2. Get the ACTUAL full size of the scrollable content
+        const element = contentToExport.value;
+        const w = element.scrollWidth;
+        const h = element.scrollHeight; // <--- This gets the full height
+
+        // 3. Filter to exclude 'no-export' elements
+        const filter = (node) => {
+            return !node.classList?.contains('no-export');
+        };
+
+        // 4. Generate Image with EXPLICIT dimensions
+        const imgData = await toPng(element, {
+            quality: 0.95,
+            pixelRatio: 2, // Keep high res
+            width: w,      // Force full width
+            height: h,     // Force full height
+            backgroundColor: '#e0f2f1',
+            filter: filter,
+            style: {
+                // Critical: Force the cloned node to expand fully
+                'transform': 'none', 
+                'overflow': 'visible',
+                'height': 'auto',
+                'max-height': 'none',
+                'font-feature-settings': '"liga" 0',
+            }
+        });
+
+        // 5. Initialize PDF
+        // 'p' = portrait, 'mm' = millimeters, 'a4' = standard size
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();   // 210mm
+        const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+        
+        // Calculate image dimensions to fit PDF width
+        const imgProps = pdf.getImageProperties(imgData);
+        const imgHeightInPdf = (imgProps.height * pdfWidth) / imgProps.width;
+
+        let heightLeft = imgHeightInPdf;
+        let position = 0;
+
+        // --- Page 1 ---
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeightInPdf);
+        heightLeft -= pdfHeight;
+
+        // --- Additional Pages ---
+        // Use > 1 to allow a 1mm tolerance and prevent blank last pages
+        while (heightLeft > 1) { 
+            position = heightLeft - imgHeightInPdf; // This pulls the image up for the next page
+            pdf.addPage();
+            
+            // We print the SAME massive image again, but shifted up (position is negative)
+            // Note: We need to recalculate position relative to the top of the new page
+            // The standard algorithm for slicing a long image in jsPDF:
+            position = -(imgHeightInPdf - heightLeft); 
+            
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeightInPdf);
+            heightLeft -= pdfHeight;
+        }
+
+        // 6. Save
+        const filename = `DevNexus_Roadmap_${roadmap.value?.title || 'Export'}.pdf`;
+        pdf.save(filename);
+
+        toast.add({ severity: 'success', summary: 'Export Complete', detail: 'PDF downloaded successfully.', life: 3000 });
+
+    } catch (error) {
+        console.error('PDF Export Error:', error);
+        toast.add({ severity: 'error', summary: 'Export Failed', detail: 'Could not generate PDF. Try reducing content size.', life: 3000 });
+    } finally {
+        isExporting.value = false;
+    }
+};
 </script>
 
 <template>
+    <Toast />
     <div class="relative min-h-[85vh] font-sans text-[#2c4c52]">
 
         <div class="absolute inset-0 z-0 pointer-events-none opacity-10"
@@ -216,11 +404,11 @@ const startRoadmap = () => {
                     <div>
                         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#2c4c52]/5 border border-[#2c4c52]/10 mb-3">
                             <i class="pi pi-compass text-xs"></i>
-                            <span class="font-mono text-xs font-bold text-[#2c4c52]/70 tracking-widest uppercase">GENERATED_PATH_V1</span>
+                            <span class="font-mono text-xs font-bold text-[#2c4c52]/70 tracking-widest uppercase">GENERAL_PATH_V1</span>
                         </div>
                         <h1 class="text-4xl font-black text-[#2c4c52] uppercase tracking-tighter mb-2">{{ roadmap?.title }}</h1>
                         <p class="text-[#4a7a82] font-medium max-w-xl">
-                            A structural guide to achieving competency in {{ roadmap?.goal }}.
+                            A structural guide to achieving competency in {{ roadmap?.career_goal }}.
                             Follow the phases sequentially.
                         </p>
                     </div>
@@ -229,7 +417,7 @@ const startRoadmap = () => {
                         <div class="text-right">
                              <div class="text-xs font-mono font-bold text-[#4a7a82] uppercase mb-1">Est. Completion</div>
                              <div class="text-2xl font-black text-[#2c4c52] flex items-center gap-2 justify-end">
-                                <i class="pi pi-clock text-lg"></i> {{ roadmap.estimate }}
+                                <i class="pi pi-clock text-lg"></i> {{ roadmap?.estimate }}
                              </div>
                         </div>
                         <div class="w-full md:w-48">
@@ -250,7 +438,7 @@ const startRoadmap = () => {
 
                 <div class="lg:col-span-8 space-y-8">
 
-                    <div v-for="(phase, index) in roadmap.phases" :key="phase.id" class="relative pl-8 group">
+                    <div v-for="(phase, index) in roadmap.phases" :key="phase.id" class="pdf-item relative pl-8 group">
 
                         <div class="absolute left-0 top-2 bottom-0 w-0.5 bg-[#2c4c52]/10 group-last:bottom-auto group-last:h-full"></div>
                         <div class="absolute -left-[5px] top-2 w-3 h-3 rounded-full border-2 border-[#2c4c52] bg-white group-hover:bg-[#7bc5cd] group-hover:scale-125 transition-all"></div>
@@ -270,7 +458,7 @@ const startRoadmap = () => {
 
                             <div class="space-y-3">
                                 <div v-for="task in phase.tasks" :key="task.id"
-                                     class="group/task flex items-start gap-3 p-3 rounded-xl hover:bg-white/50 transition-colors border border-transparent hover:border-[#2c4c52]/5 cursor-pointer"
+                                     class="pdf-item group/task flex items-start gap-3 p-3 rounded-xl hover:bg-white/50 transition-colors border border-transparent hover:border-[#2c4c52]/5 cursor-pointer"
                                      @click="handleRowClick(task)">
 
                                     <div class="pt-0.5" @click.stop>
@@ -347,7 +535,11 @@ const startRoadmap = () => {
             @click="startRoadmap"
         />
 
-        <Button label="EXPORT PDF" icon="pi pi-download" class="y2k-button-secondary-dark w-full !text-xs" @click="exportToPDF" />
+        <Button :label="isExporting ? 'EXPORTING...' : 'EXPORT PDF'" 
+                                    :icon="isExporting ? 'pi pi-spin pi-spinner' : 'pi pi-download'"
+                                    :disabled="isExporting"
+                                    class="y2k-button-secondary-dark w-full !text-xs" 
+                                    @click="exportToPDF" />
     </div>
 </div>
                         <div class="bg-white/40 backdrop-blur-md border border-white/60 p-6 rounded-3xl">
@@ -357,7 +549,7 @@ const startRoadmap = () => {
                             <ul class="space-y-3 text-sm">
                                 <li class="flex justify-between">
                                     <span class="text-[#4a7a82]">Level</span>
-                                    <span class="font-bold text-[#2c4c52]">{{ roadmap.level }}</span>
+                                    <span class="font-bold text-[#2c4c52]">{{ roadmap?.level }}</span>
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-[#4a7a82]">Total Tasks</span>
@@ -398,6 +590,9 @@ const startRoadmap = () => {
 </template>
 
 <style scoped>
+:deep(.p-toast) {
+    z-index: 9999 !important;
+}
 /* Y2K Button Variants */
 .y2k-button-primary {
     background: linear-gradient(135deg, #2c4c52 0%, #1a3338 100%) !important;

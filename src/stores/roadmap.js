@@ -75,21 +75,21 @@ export const useRoadmapStore = defineStore('roadmap', {
         },
 
         // --- AI Generation Endpoint (For RoadmapGenerator) ---
-        async generateRoadmapAI(promptData) {
-            this.loading = true;
-            this.errors = {};
-            try {
-                // Assuming a specific endpoint for AI generation logic
-                const response = await api.post('/api/roadmaps/generate', promptData);
-                this.roadmaps.push(response.data.data || response.data);
-                return response.data;
-            } catch (error) {
-                this.handleError(error);
-                throw error;
-            } finally {
-                this.loading = false;
-            }
-        },
+        // async generateRoadmapAI(promptData) {
+        //     this.loading = true;
+        //     this.errors = {};
+        //     try {
+        //         // Assuming a specific endpoint for AI generation logic
+        //         const response = await api.post('/api/roadmaps/generate', promptData);
+        //         this.roadmaps.push(response.data.data || response.data);
+        //         return response.data;
+        //     } catch (error) {
+        //         this.handleError(error);
+        //         throw error;
+        //     } finally {
+        //         this.loading = false;
+        //     }
+        // },
 
         // --- Update Roadmap (Progress or Details) ---
         async updateRoadmap(id, data) {
@@ -113,10 +113,24 @@ export const useRoadmapStore = defineStore('roadmap', {
             }
         },
         // src/stores/roadmap.js
+        async updateRoadmapStatus(id, status) {
+            try {
+                await api.patch(`/api/roadmaps/${id}`, { status: status });
+
+                // Update local state so the UI reacts immediately
+                if (this.currentRoadmap && this.currentRoadmap.id === id) {
+                    this.currentRoadmap.status = status;
+                }
+            } catch (error) {
+                console.error("Status update failed:", error);
+                throw error;
+            }
+        },
+        // src/stores/roadmap.js
         async archiveRoadmap(id) {
             try {
                 // Send the status update to Laravel
-                const response = await axios.patch(`/api/roadmaps/${id}`, {
+                const response = await api.patch(`/api/roadmaps/${id}`, {
                     status: 'archived'
                 });
 
@@ -132,6 +146,53 @@ export const useRoadmapStore = defineStore('roadmap', {
                 }
             } catch (error) {
                 console.error("Archiving failed:", error);
+                throw error;
+            }
+        },
+        // Inside your Roadmap Store actions
+        async updateTaskStatus(taskId, completed) {
+            const response = await api.patch(`/api/tasks/${taskId}`, {
+                completed: completed
+            });
+
+            // Update the local progress integer in the store
+            if (this.currentRoadmap) {
+                this.currentRoadmap.progress = response.data.progress;
+            }
+        },
+        async updateTaskDetails(taskId, payload) {
+            // Example: PUT /api/tasks/{taskId}
+            const response = await api.put(`/api/tasks/${taskId}`, payload);
+            return response.data;
+        },
+        async addTask(phaseId, payload) {
+            // Adjust '/api/tasks' to match your actual Laravel/Backend route
+            // Example: POST /api/phases/{phaseId}/tasks
+            const response = await api.post(`/api/phases/${phaseId}/tasks`, payload);
+            
+            // Return the data so the component can push it to the UI
+            return response.data; 
+        },
+        // src/stores/roadmap.js
+        async startAndResetRoadmap(id) {
+            try {
+                // 1. Backend Sync
+                await api.post(`/api/roadmaps/${id}/reset`);
+
+                // 2. Local State Update
+                if (this.currentRoadmap && this.currentRoadmap.id === id) {
+                    this.currentRoadmap.status = 'active'; // Change to active
+                    this.currentRoadmap.progress = 0;      // Reset progress column
+
+                    // Set all tasks in all phases to false
+                    this.currentRoadmap.phases.forEach(phase => {
+                        if (phase.tasks) {
+                            phase.tasks.forEach(task => task.completed = false);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to initialize roadmap:", error);
                 throw error;
             }
         },
@@ -175,11 +236,9 @@ export const useRoadmapStore = defineStore('roadmap', {
                 // 2. Start Animation Loop
                 this._genInterval = setInterval(() => {
                     if (this.genProgress < 90) {
-                        // Slow down as we get closer to 90%
                         const increment = this.genProgress > 60 ? 0.5 : 2;
                         this.genProgress += increment;
 
-                        // Find relevant message from the passed config
                         const currentStep = config.steps.findLast(step => this.genProgress >= step.threshold);
                         if (currentStep) {
                             this.genStatus = currentStep.message;
@@ -188,7 +247,8 @@ export const useRoadmapStore = defineStore('roadmap', {
                 }, 200);
 
                 // 3. Real API Call
-                const response = await api.post('/api/generate-roadmap', payload);
+                // FIX: Updated URL to match RoadmapController.php
+                const response = await api.post('/api/roadmaps/generate', payload);
 
                 // 4. Success Handling
                 this.clearGenerationInterval();
@@ -201,13 +261,19 @@ export const useRoadmapStore = defineStore('roadmap', {
 
                 // 5. Redirect after short delay
                 setTimeout(() => {
-                    const isAcademic = payload.type === 'Academic';
+                    // FIX: Check the DB response and handle Case Sensitivity safely
+                    const type = newRoadmapData.type ? newRoadmapData.type.toLowerCase() : 'general';
+                    const isAcademic = type === 'academic';
+
                     const targetPath = isAcademic
                         ? `/student/roadmap-details-academic/${newRoadmapData.id}`
                         : `/student/roadmap-details/${newRoadmapData.id}`;
 
                     router.push(targetPath);
                 }, 800);
+                
+                // OPTIONAL: Return data in case the component needs it for something else
+                return newRoadmapData; 
 
             } catch (error) {
                 // 6. Error Handling
@@ -218,8 +284,9 @@ export const useRoadmapStore = defineStore('roadmap', {
 
                 console.error("Roadmap Generation Error:", error);
                 if (toast) {
-                    toast.add({ severity: 'error', summary: 'AI Error', detail: 'Failed to generate roadmap. Please try again.', life: 5000 });
+                    toast.add({ severity: 'error', summary: 'AI Error', detail: 'Failed to generate roadmap.', life: 5000 });
                 }
+                throw error; // Re-throw so the component knows it failed
             }
         },
 

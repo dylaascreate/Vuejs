@@ -49,15 +49,22 @@ export const useAuthStore = defineStore('auth', {
         // Logout action
         async logout() {
             try {
-                // 1. Call Laravel API to invalidate session/token on server
+                // 1. Call Laravel API (Server tries to delete HttpOnly cookies)
                 await api.post('/api/logout');
             } catch (error) {
                 console.error('API Logout failed, clearing local state anyway', error);
             } finally {
-                // 2. Clear local state regardless of server response
+                // 2. Clear local state
                 this.authUser = null;
                 localStorage.clear();
                 sessionStorage.clear();
+
+                // 3. FORCE DELETE THE COOKIE
+                // This sets the cookie expiration to the past, effectively removing it
+                document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+                // Optional: If you use a 'laravel_session' check and it's not HttpOnly
+                // document.cookie = "laravel_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             }
         }
     }

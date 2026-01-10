@@ -1,17 +1,10 @@
 <script setup>
 import { useLayout } from '@/layout/composables/layout';
 import { onMounted, ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
 const { isDarkTheme } = useLayout();
-
-// Custom "Star" Icon based on your logo shape
-const StarIcon = {
-    template: `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2L14.09 8.26L21 9.27L16 14.14L17.18 21.02L12 17.77L6.82 21.02L8 14.14L3 9.27L9.91 8.26L12 2Z" />
-    </svg>
-    `
-};
+const auth = useAuthStore();
 
 const features = ref([
     { title: 'AI GENERATION', desc: 'Neural networks building your path.', icon: 'pi pi-bolt' },
@@ -32,8 +25,8 @@ const features = ref([
 
         <nav class="relative z-50 px-6 py-6 flex justify-between items-center max-w-7xl mx-auto">
             <div class="flex items-center gap-2">
-                <div class="w-10 h-10 bg-gradient-to-tr from-[#7bc5cd] to-white rounded flex items-center justify-center shadow-lg border border-white/50">
-                    <component :is="StarIcon" class="text-white w-6 h-6" />
+                <div class="flex items-center justify-center shadow-lg">
+                    <img src="/dvnx.png" alt="DevNexus Logo" class="w-10 h-10" />
                 </div>
                 <span class="text-2xl font-black tracking-tighter italic bg-clip-text text-transparent bg-gradient-to-r from-[#2c4c52] to-[#5d9ca4]">
                     DEVNEXUS
@@ -41,18 +34,31 @@ const features = ref([
             </div>
 
             <div class="hidden md:flex gap-8 font-mono text-sm font-bold tracking-widest text-[#2c4c52]/80">
-                <a href="/matrix" class="hover:text-[#2c4c52] hover:underline decoration-2 underline-offset-4 transition-all">MATRIX</a>
+                <router-link to="/matrix" class="hover:text-[#2c4c52] hover:underline decoration-2 underline-offset-4 transition-all">MATRIX</router-link>
                 <a href="#modules" class="hover:text-[#2c4c52] hover:underline decoration-2 underline-offset-4 transition-all">MODULES</a>
-                <a href="/contact" class="hover:text-[#2c4c52] hover:underline decoration-2 underline-offset-4 transition-all">CONNECT</a>
+                <router-link to="/contact" class="hover:text-[#2c4c52] hover:underline decoration-2 underline-offset-4 transition-all">CONNECT</router-link>
             </div>
 
             <div class="flex gap-4">
-                <router-link to="/auth/login">
-                <Button label="LOGIN" class="y2k-button-secondary font-mono text-sm" />
-                </router-link>
-                <router-link to="/auth/register">
-                <Button label="ENTER SYSTEM" class="y2k-button-primary font-mono text-sm" />
-                </router-link>
+                <template v-if="auth.user">
+                    <router-link to="/">
+                        <Button
+                            label="ACCESS TERMINAL"
+                            icon="pi pi-server"
+                            class="y2k-button-primary font-mono text-sm !px-8"
+                        />
+                    </router-link>
+                </template>
+
+                <template v-else>
+                    <router-link to="/auth/login">
+                        <Button label="LOGIN" class="y2k-button-secondary font-mono text-sm" />
+                    </router-link>
+
+                    <router-link to="/auth/register">
+                        <Button label="ENTER SYSTEM" class="y2k-button-primary font-mono text-sm" />
+                    </router-link>
+                </template>
             </div>
         </nav>
 
@@ -172,11 +178,11 @@ const features = ref([
                 </div>
 
                 <div class="flex justify-center gap-6 mt-12 text-[#2c4c52]/60 font-mono text-sm">
-                    <a href="#" class="hover:text-[#2c4c52]">COPYRIGHT_2025</a>
+                    <router-link to="/copyright" class="hover:text-[#2c4c52]">COPYRIGHT_2025</router-link>
                     <span>//</span>
-                    <a href="#" class="hover:text-[#2c4c52]">PRIVACY_PROTOCOL</a>
+                    <router-link to="/protocol" class="hover:text-[#2c4c52]">PRIVACY_PROTOCOL</router-link>
                     <span>//</span>
-                    <a href="/status" class="hover:text-[#2c4c52]">SYSTEM_STATUS</a>
+                    <router-link to="/status" class="hover:text-[#2c4c52]">SYSTEM_STATUS</router-link>
                 </div>
             </div>
         </footer>

@@ -2,6 +2,24 @@
 import { ref } from 'vue';
 import { useLayout } from '@/layout/composables/layout';
 import AppConfigurator from './AppConfigurator.vue';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
+import { useToast } from 'primevue/usetoast';
+
+const router = useRouter();
+const toast = useToast();
+const authStore = useAuthStore();
+
+const logout = async () =>{
+    try {
+        await authStore.logout(); // Calls the API logout + clears state
+        router.push('/auth/login');
+        toast.add({ severity: 'success', summary: 'End of Session', detail: 'Session terminated', life: 3000 });
+    } catch (error) {
+        console.error(error);
+        toast.add({ severity: 'error', summary: 'End of Session', detail: 'Unable to end session. Try again.', life: 3000 });
+    }
+};
 
 // 1. Layout Composables
 const { toggleMenu, toggleDarkMode, isDarkTheme } = useLayout();
@@ -162,6 +180,10 @@ const markAllRead = () => {
                             <span>Profile</span>
                         </button>
                     </router-link>
+                    <button type="button" class="layout-topbar-action" @click="logout">
+                        <i class="pi pi-sign-out"></i>
+                        <span>Logout</span>
+                    </button>
                 </div>
             </div>
         </div>

@@ -158,6 +158,23 @@ export const useSkillStore = defineStore('skill', {
                 console.error('Failed to load skill stats', error);
             }
         },
+        // src/stores/roadmap.js
+        async addSkillToProfile(skillName) {
+            try {
+                const response = await api.post('/api/user/skills', {
+                    name: skillName,
+                    proficiency: 1 // Default to 1%
+                });
+
+                // Update local user skills list in the store
+                // Assuming you have a userSkills array in your state
+                this.userSkills.push(response.data);
+                return response.data;
+            } catch (error) {
+                console.error("Failed to add skill:", error);
+                throw error;
+            }
+        },
 
         // --- Error Handling ---
         handleError(error) {

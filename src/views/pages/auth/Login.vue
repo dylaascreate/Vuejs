@@ -118,9 +118,9 @@ const autofillAdmin = () => {
                             <Checkbox id="rememberme" v-model="checked" :binary="true" class="y2k-checkbox" />
                             <label for="rememberme" class="text-sm font-medium cursor-pointer select-none">Stay Connected</label>
                         </div>
-                        <a href="/auth/reset-password" class="text-sm font-bold text-[#2c4c52] hover:text-[#7bc5cd] cursor-pointer transition-colors border-b border-transparent hover:border-[#7bc5cd]">
+                        <router-link to="/auth/reset-password" class="text-sm font-bold text-[#2c4c52] hover:text-[#7bc5cd] cursor-pointer transition-colors border-b border-transparent hover:border-[#7bc5cd]">
                             Reset Key?
-                        </a>
+                        </router-link>
                     </div>
 
                     <Button label="INITIALIZE SESSION"

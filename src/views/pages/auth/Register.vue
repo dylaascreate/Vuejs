@@ -75,7 +75,7 @@ const StarIcon = {
         <div class="relative z-10 w-full max-w-md px-4 my-8">
 
             <div class="text-center mb-8">
-               
+
                 <h1 class="text-4xl font-black tracking-tighter text-[#2c4c52] mb-1">
                     NEW <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#7bc5cd] to-[#5d9ca4]">IDENTITY</span>
                 </h1>
@@ -126,7 +126,7 @@ const StarIcon = {
                     <div class="flex items-start gap-3 mt-2">
                         <Checkbox id="terms" v-model="terms" :binary="true" class="y2k-checkbox mt-1" />
                         <label for="terms" class="text-sm font-medium text-[#4a7a82] leading-snug cursor-pointer select-none">
-                            I accept the <a href="#" class="font-bold text-[#2c4c52] hover:text-[#7bc5cd] border-b border-[#2c4c52]">System Protocols</a> and Privacy Terms.
+                            I accept the <a href="/protocol" class="font-bold text-[#2c4c52] hover:text-[#7bc5cd] border-b border-[#2c4c52]">System Protocols</a> and Privacy Terms.
                         </label>
                     </div>
 

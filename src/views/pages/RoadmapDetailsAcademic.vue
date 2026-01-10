@@ -1,83 +1,112 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
-import { useRouter } from 'vue-router'; // Import Router
+import { useRoadmapStore } from '@/stores/roadmap';
+import jsPDF from 'jspdf';
+import { toPng } from 'html-to-image';
 
+const route = useRoute();
+const router = useRouter();
 const toast = useToast();
-const router = useRouter(); // Initialize Router
+const roadmapStore = useRoadmapStore();
 
-// --- Mock Data ---
-const roadmap = ref({
-    role: 'Backend Architect',
-    courseCode: 'CS304',
-    courseName: 'Advanced Database Systems',
-    estimate: '14 Weeks',
-    creditHours: 3,
-    level: 'Intermediate',
-    phases: [
-        {
-            id: 1,
-            title: 'Phase 1: Data Modeling & Requirements',
-            description: 'Weeks 1-3: Translating business rules into data structures.',
-            skills: ['Database Design', 'Schema Optimization', 'Technical Specs'],
-            tasks: [
-                { id: 101, title: 'Lecture 1: Relational Theory', subtitle: 'Understand ACID properties in production.', completed: false },
-                { id: 102, title: 'Lab 1: ERD to Schema', subtitle: 'Design a scalable schema for an E-commerce app.', completed: false },
-                { id: 103, title: 'Assignment 1: Normalization', subtitle: 'Optimize database to 3NF to reduce redundancy.', completed: false }
-            ]
-        },
-        {
-            id: 2,
-            title: 'Phase 2: Query Performance & Logic',
-            description: 'Weeks 4-7: Writing efficient queries for high-load systems.',
-            skills: ['Advanced SQL', 'Query Optimization', 'PL/SQL'],
-            tasks: [
-                { id: 201, title: 'Lecture 4: Indexing Strategies', subtitle: 'B-Tree vs Hash indexes for faster lookups.', completed: false },
-                { id: 202, title: 'Lab 3: Stored Procedures', subtitle: 'Automate business logic inside the DB.', completed: false },
-                { id: 203, title: 'Mid-Sem Project', subtitle: 'Build the backend API connected to your DB.', completed: false }
-            ]
-        },
-        // ... (Other phases kept brief for display, assumed full data is present)
-    ]
-});
-
-// --- Dialog State ---
+// --- PDF & UI State ---
+const contentToExport = ref(null);
+const isExporting = ref(false);
 const taskDialog = ref(false);
 const isEditing = ref(false);
 const currentPhaseId = ref(null);
 const taskForm = ref({ id: null, title: '', subtitle: '' });
 
+// --- Store Data Binding ---
+const isLoading = computed(() => roadmapStore.loading);
+const roadmap = computed(() => roadmapStore.currentRoadmap);
+
+// --- Lifecycle ---
+onMounted(async () => {
+    const routeId = route.params.id;
+    if (routeId) {
+        try {
+            await roadmapStore.fetchRoadmap(routeId);
+        } catch (error) {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Roadmap not found.' });
+            router.push({ name: 'student-roadmaps' });
+        }
+    }
+});
+
 // --- Computed Stats ---
-const totalTasks = computed(() => roadmap.value.phases.reduce((acc, phase) => acc + phase.tasks.length, 0));
+const totalTasks = computed(() => {
+    if (!roadmap.value?.phases) return 0;
+    return roadmap.value.phases.reduce((acc, phase) => acc + (phase.tasks ? phase.tasks.length : 0), 0);
+});
 
 const progressPercentage = computed(() => {
+    if (!roadmap.value?.phases) return 0;
     let completed = 0;
     let total = 0;
     roadmap.value.phases.forEach(phase => {
-        phase.tasks.forEach(task => {
-            total++;
-            if (task.completed) completed++;
-        });
+        if (phase.tasks) {
+            phase.tasks.forEach(task => {
+                total++;
+                if (task.completed) completed++;
+            });
+        }
     });
     return total === 0 ? 0 : Math.round((completed / total) * 100);
 });
 
-// --- Actions ---
+// --- Actions (Store Integrated) ---
 
-const completeRoadmap = () => {
-    toast.add({
-        severity: 'success',
-        summary: 'Course Completed! 🎉',
-        detail: 'Excellent work. Returning to dashboard...',
-        life: 3000
-    });
-
-    // Redirect after a short delay for the toast to be seen
-    setTimeout(() => {
-        router.push('/student/roadmaps'); // Update this path to your actual listing route
-    }, 1500);
+const completeRoadmap = async () => {
+    try {
+        await roadmapStore.updateRoadmapStatus(roadmap.value.id, 'completed');
+        toast.add({ severity: 'success', summary: 'Course Completed! 🎉', detail: 'Excellent work.', life: 3000 });
+        // Optional: Redirect logic handled by parent or sidebar, or stay on page
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Could not update status.' });
+    }
 };
 
+const startRoadmap = async () => {
+    try {
+        await roadmapStore.startAndResetRoadmap(roadmap.value.id);
+        toast.add({ severity: 'info', summary: 'Course Started', detail: 'Synced to dashboard.', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Connection failed.' });
+    }
+};
+
+const toggleTask = async (task) => {
+    try {
+        // Optimistic Update
+        roadmap.value.progress = progressPercentage.value; 
+        
+        await roadmapStore.updateTaskStatus(task.id, task.completed);
+        
+        if (task.completed) {
+            const isDone = progressPercentage.value === 100;
+            toast.add({ 
+                severity: 'success', 
+                summary: isDone ? 'All Tasks Done' : 'Progress Saved', 
+                detail: isDone ? 'You are ready to complete the course!' : 'Marked as complete.', 
+                life: 1000 
+            });
+        }
+    } catch (error) {
+        // Revert
+        task.completed = !task.completed;
+        toast.add({ severity: 'error', summary: 'Sync Error', detail: 'Could not save progress.' });
+    }
+};
+
+const handleRowClick = (task) => {
+    task.completed = !task.completed;
+    toggleTask(task);
+};
+
+// --- Dialog Logic ---
 const openAddTask = (phaseId) => {
     isEditing.value = false;
     currentPhaseId.value = phaseId;
@@ -92,7 +121,7 @@ const openEditTask = (task, phaseId) => {
     taskDialog.value = true;
 };
 
-const saveTask = () => {
+const saveTask = async () => {
     if (!taskForm.value.title.trim()) {
         toast.add({ severity: 'error', summary: 'Error', detail: 'Title is required.', life: 2000 });
         return;
@@ -100,54 +129,135 @@ const saveTask = () => {
     const phase = roadmap.value.phases.find(p => p.id === currentPhaseId.value);
     if (!phase) return;
 
-    if (isEditing.value) {
-        const taskIndex = phase.tasks.findIndex(t => t.id === taskForm.value.id);
-        if (taskIndex !== -1) {
-            phase.tasks[taskIndex].title = taskForm.value.title;
-            phase.tasks[taskIndex].subtitle = taskForm.value.subtitle;
+    try {
+        if (isEditing.value) {
+            await roadmapStore.updateTaskDetails(taskForm.value.id, {
+                title: taskForm.value.title,
+                subtitle: taskForm.value.subtitle
+            });
+            // Update local state
+            const task = phase.tasks.find(t => t.id === taskForm.value.id);
+            if (task) {
+                task.title = taskForm.value.title;
+                task.subtitle = taskForm.value.subtitle;
+            }
             toast.add({ severity: 'success', summary: 'Updated', detail: 'Syllabus updated.', life: 2000 });
-        }
-    } else {
-        phase.tasks.push({
-            id: Date.now(),
-            title: taskForm.value.title,
-            subtitle: taskForm.value.subtitle,
-            completed: false
-        });
-        toast.add({ severity: 'success', summary: 'Added', detail: 'New topic added.', life: 2000 });
-    }
-    taskDialog.value = false;
-};
-
-const handleRowClick = (task) => {
-    task.completed = !task.completed;
-    toggleTask(task);
-};
-
-const toggleTask = (task) => {
-    if (task.completed) {
-        // Optional: specific check if this was the last task
-        if (progressPercentage.value === 100) {
-            toast.add({ severity: 'success', summary: 'All Tasks Done', detail: 'You are ready to complete the course!', life: 3000 });
         } else {
-            toast.add({ severity: 'success', summary: 'Progress Saved', detail: 'Marked as complete.', life: 1000 });
+            const newTask = {
+                title: taskForm.value.title,
+                subtitle: taskForm.value.subtitle,
+                order_index: phase.tasks ? phase.tasks.length + 1 : 1
+            };
+            const created = await roadmapStore.addTask(currentPhaseId.value, newTask);
+            
+            if (!phase.tasks) phase.tasks = [];
+            phase.tasks.push(created || { ...newTask, id: Date.now(), completed: false });
+            
+            toast.add({ severity: 'success', summary: 'Added', detail: 'New topic added.', life: 2000 });
         }
+        taskDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Operation failed.' });
     }
 };
 
-const startRoadmap = () => {
-    toast.add({ severity: 'info', summary: 'Course Started', detail: 'Course synced to dashboard.', life: 3000 });
+// --- PDF Export Logic (Roboust) ---
+const exportToPDF = async () => {
+    if (!contentToExport.value) return;
+    isExporting.value = true;
+
+    try {
+        const element = contentToExport.value;
+        // Fix: Use scroll dimensions to capture entire height of content
+        const w = element.scrollWidth;
+        const h = element.scrollHeight; 
+
+        // Filter out buttons (.no-export)
+        const filter = (node) => !node.classList?.contains('no-export');
+
+        const imgData = await toPng(element, {
+            quality: 0.95,
+            pixelRatio: 2,
+            width: w,
+            height: h,
+            backgroundColor: '#e0f2f1',
+            filter: filter,
+            style: {
+                'transform': 'none',
+                'overflow': 'visible',
+                'height': 'auto',
+                'max-height': 'none',
+                'font-feature-settings': '"liga" 0',
+            }
+        });
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgProps = pdf.getImageProperties(imgData);
+        const imgHeightInPdf = (imgProps.height * pdfWidth) / imgProps.width;
+
+        let heightLeft = imgHeightInPdf;
+        let position = 0;
+
+        // Page 1
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeightInPdf);
+        heightLeft -= pdfHeight;
+
+        // Subsequent Pages
+        while (heightLeft > 1) {
+            position = heightLeft - imgHeightInPdf;
+            pdf.addPage();
+            // Calculate offset for next page
+            position = -(imgHeightInPdf - heightLeft);
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeightInPdf);
+            heightLeft -= pdfHeight;
+        }
+
+        pdf.save(`Academic_Roadmap_${roadmap.value?.courseCode || 'Export'}.pdf`);
+        toast.add({ severity: 'success', summary: 'Export Complete', detail: 'Syllabus downloaded.', life: 3000 });
+
+    } catch (error) {
+        console.error(error);
+        toast.add({ severity: 'error', summary: 'Export Failed', detail: 'Could not generate PDF.', life: 3000 });
+    } finally {
+        isExporting.value = false;
+    }
 };
 </script>
 
 <template>
+    <Toast />
     <div class="relative min-h-[85vh] font-sans text-[#2c4c52]">
 
         <div class="absolute inset-0 z-0 pointer-events-none opacity-10"
              style="background-image: linear-gradient(#7bc5cd 1px, transparent 1px), linear-gradient(90deg, #7bc5cd 1px, transparent 1px); background-size: 30px 30px;">
         </div>
 
-        <div class="relative z-10 p-4 max-w-5xl mx-auto flex flex-col gap-8">
+        <div v-if="isLoading" class="relative z-10 p-4 max-w-5xl mx-auto flex flex-col gap-8">
+            <div class="bg-white/40 border border-white/60 p-8 rounded-3xl">
+                <div class="flex flex-col md:flex-row gap-6">
+                    <Skeleton shape="circle" size="4rem" class="mr-2"></Skeleton>
+                    <div class="w-full">
+                        <Skeleton width="15rem" class="mb-2"></Skeleton>
+                        <Skeleton width="50%" height="2rem" class="mb-2"></Skeleton>
+                        <Skeleton width="30%" height="1rem"></Skeleton>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div class="lg:col-span-8 space-y-8">
+                    <div v-for="n in 2" :key="n" class="relative pl-8">
+                        <Skeleton width="100%" height="120px" borderRadius="12px"></Skeleton>
+                    </div>
+                </div>
+                <div class="lg:col-span-4">
+                    <Skeleton width="100%" height="200px" borderRadius="12px"></Skeleton>
+                </div>
+            </div>
+        </div>
+
+        <div v-else class="relative z-10 p-4 max-w-5xl mx-auto flex flex-col gap-8" ref="contentToExport">
 
             <div class="bg-white/60 backdrop-blur-xl border border-white/60 p-8 rounded-3xl shadow-sm relative overflow-hidden">
                 <div class="absolute -right-10 -top-10 w-64 h-64 bg-[#7bc5cd]/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -158,17 +268,17 @@ const startRoadmap = () => {
                             <i class="pi pi-graduation-cap text-xs"></i>
                             <span class="font-mono text-xs font-bold text-[#2c4c52]/70 tracking-widest uppercase">ACADEMIC_PATH_V2</span>
                         </div>
-                        <h1 class="text-4xl font-black text-[#2c4c52] uppercase tracking-tighter mb-3">{{ roadmap.role }}</h1>
+                        <h1 class="text-4xl font-black text-[#2c4c52] uppercase tracking-tighter mb-3">{{ roadmap?.title }}</h1>
                         <div class="flex items-center gap-3 mb-4">
                             <div class="flex items-center gap-2 text-[#4a7a82] bg-white/80 px-3 py-1.5 rounded-xl border border-[#2c4c52]/10 shadow-sm">
                                 <i class="pi pi-book text-[#7bc5cd]"></i>
                                 <span class="text-sm font-bold">
-                                    Aligned Course: <span class="text-[#2c4c52] uppercase">{{ roadmap.courseCode }} - {{ roadmap.courseName }}</span>
+                                    Aligned Course: <span class="text-[#2c4c52] uppercase">{{ roadmap?.course_code }} - {{ roadmap?.course?.course_name || 'Unknown Course' }}</span>
                                 </span>
                             </div>
                         </div>
                         <p class="text-[#4a7a82] font-medium max-w-xl text-sm leading-relaxed">
-                            This roadmap maps your academic syllabus to industry requirements.
+                            This roadmap maps your academic syllabus to industry requirements for {{ roadmap?.career_goal }}.<br>
                             Mastering these course topics directly builds the <span class="font-bold text-[#2c4c52]">skills employers hire for</span>.
                         </p>
                     </div>
@@ -177,7 +287,7 @@ const startRoadmap = () => {
                         <div class="text-right">
                              <div class="text-xs font-mono font-bold text-[#4a7a82] uppercase mb-1">Course Length</div>
                              <div class="text-2xl font-black text-[#2c4c52] flex items-center gap-2 justify-end">
-                                <i class="pi pi-calendar-times text-lg"></i> {{ roadmap.estimate }}
+                                <i class="pi pi-calendar-times text-lg"></i> {{ roadmap?.estimate }}
                              </div>
                         </div>
                         <div class="w-full md:w-48">
@@ -197,7 +307,7 @@ const startRoadmap = () => {
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
                 <div class="lg:col-span-8 space-y-8">
-                    <div v-for="(phase, index) in roadmap.phases" :key="phase.id" class="relative pl-8 group">
+                    <div v-for="(phase, index) in roadmap?.phases" :key="phase.id" class="relative pl-8 group pdf-item">
 
                         <div class="absolute left-0 top-2 bottom-0 w-0.5 bg-[#2c4c52]/10 group-last:bottom-auto group-last:h-full"></div>
                         <div class="absolute -left-[5px] top-2 w-3 h-3 rounded-full border-2 border-[#2c4c52] bg-white group-hover:bg-[#7bc5cd] group-hover:scale-125 transition-all"></div>
@@ -241,12 +351,12 @@ const startRoadmap = () => {
                                     </div>
 
                                     <Button icon="pi pi-pencil" text rounded
-                                            class="edit-btn !w-6 !h-6 !text-[#2c4c52]/50 hover:!text-[#2c4c52]"
+                                            class="edit-btn no-export !w-6 !h-6 !text-[#2c4c52]/50 hover:!text-[#2c4c52]"
                                             @click.stop="openEditTask(task, phase.id)" />
                                 </div>
                             </div>
 
-                            <div class="mt-4 pt-2 border-t border-dashed border-[#2c4c52]/10">
+                            <div class="mt-4 pt-2 border-t border-dashed border-[#2c4c52]/10 no-export">
                                 <Button label="ADD ITEM" icon="pi pi-plus" text
                                         class="!text-xs !font-bold !text-[#7bc5cd] hover:bg-[#7bc5cd]/10 !p-1 !px-3"
                                         @click="openAddTask(phase.id)" />
@@ -259,7 +369,7 @@ const startRoadmap = () => {
                 <div class="lg:col-span-4 space-y-6">
                     <div class="sticky top-6">
 
-                        <div v-if="progressPercentage === 100" class="bg-green-600 text-white p-6 rounded-3xl shadow-xl mb-6 animate-fade-in transition-all">
+                        <div v-if="progressPercentage === 100" class="no-export bg-green-600 text-white p-6 rounded-3xl shadow-xl mb-6 animate-fade-in transition-all">
                              <h4 class="font-black !text-white uppercase text-lg mb-2 flex items-center gap-2">
                                 <i class="pi pi-verified text-xl"></i> All Systems Go
                              </h4>
@@ -271,23 +381,28 @@ const startRoadmap = () => {
                                      @click="completeRoadmap" />
                         </div>
 
-                        <div v-else class="bg-[#2c4c52] text-white p-6 rounded-3xl shadow-xl mb-6 transition-all">
+                        <div v-else class="no-export bg-[#2c4c52] text-white p-6 rounded-3xl shadow-xl mb-6 transition-all">
                             <h4 class="font-black !text-white uppercase text-lg mb-2">Sync Course</h4>
                             <p class="text-sm text-[#7bc5cd] mb-6">Align this roadmap with your university schedule.</p>
                             <div class="flex flex-col gap-3">
-                                <Button label="START COURSE" icon="pi pi-play" class="y2k-button-primary-dark w-full !text-xs" @click="startRoadmap" />
-                                <Button label="DOWNLOAD SYLLABUS" icon="pi pi-file-pdf" class="y2k-button-secondary-dark w-full !text-xs" />
+                                <Button v-if="roadmap?.status !== 'active'" label="START COURSE" icon="pi pi-play" class="y2k-button-primary-dark w-full !text-xs" @click="startRoadmap" />
+                                
+                                <Button :label="isExporting ? 'GENERATING PDF...' : 'DOWNLOAD SYLLABUS'" 
+                                        :icon="isExporting ? 'pi pi-spin pi-spinner' : 'pi pi-file-pdf'" 
+                                        :disabled="isExporting"
+                                        class="y2k-button-secondary-dark w-full !text-xs" 
+                                        @click="exportToPDF"/>
                             </div>
                         </div>
 
                         <div class="bg-white/40 backdrop-blur-md border border-white/60 p-6 rounded-3xl">
                              <h4 class="font-bold text-[#2c4c52] text-sm uppercase mb-4 flex items-center gap-2">
                                 <i class="pi pi-info-circle"></i> Course Details
-                            </h4>
-                            <ul class="space-y-3 text-sm">
+                             </h4>
+                             <ul class="space-y-3 text-sm">
                                 <li class="flex justify-between">
                                     <span class="text-[#4a7a82]">Level</span>
-                                    <span class="font-bold text-[#2c4c52]">{{ roadmap.level }}</span>
+                                    <span class="font-bold text-[#2c4c52]">{{ roadmap?.level }}</span>
                                 </li>
                                 <li class="flex justify-between">
                                     <span class="text-[#4a7a82]">Total Topics</span>
@@ -297,7 +412,7 @@ const startRoadmap = () => {
                                     <span class="text-[#4a7a82]">Assessment</span>
                                     <span class="font-bold text-green-600">Coursework + Exam</span>
                                 </li>
-                            </ul>
+                             </ul>
                         </div>
                     </div>
                 </div>
@@ -430,5 +545,15 @@ const startRoadmap = () => {
     font-weight: 900;
     font-family: monospace;
     letter-spacing: -0.05em;
+}
+
+/* Print Handling */
+@media print {
+    .no-export {
+        display: none !important;
+    }
+    .pdf-item {
+        break-inside: avoid;
+    }
 }
 </style>

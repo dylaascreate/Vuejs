@@ -1,9 +1,14 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import emailjs from '@emailjs/browser';
+import { useToast } from 'primevue/usetoast';
 
 const router = useRouter();
+const toast = useToast();
 const loading = ref(false);
+
+// Form Data
 const form = ref({
     name: '',
     email: '',
@@ -11,21 +16,81 @@ const form = ref({
     message: ''
 });
 
+// Load config from .env file
+const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+// New State for Inline Validation
+const emailError = ref('');
+
+const isValidEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+};
+
 const submit = () => {
+    // 1. Basic Validation
+    if (!form.value.name || !form.value.email || !form.value.message) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Missing Data',
+            detail: 'Please complete all required fields.',
+            life: 3000
+        });
+        return;
+    }
+
+    // 2. Validate Email Format (Inline Alert)
+    if (!isValidEmail(form.value.email)) {
+        emailError.value = 'ERROR: INVALID EMAIL PROTOCOL (e.g., user@domain.com)';
+        return; // Stop execution here
+    }
+
     loading.value = true;
-    // Simulate network request
-    setTimeout(() => {
-        loading.value = false;
-        form.value = { name: '', email: '', subject: '', message: '' };
-        alert('TRANSMISSION SUCCESSFUL');
-    }, 1500);
+
+    // 3. Prepare Data for EmailJS
+    const templateParams = {
+        from_name: form.value.name,
+        from_email: form.value.email,
+        subject: form.value.subject || 'No Subject',
+        message: form.value.message
+    };
+
+    // 4. Send Email
+    emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY)
+        .then((response) => {
+            console.log('SUCCESS!', response.status, response.text);
+            toast.add({
+                severity: 'success',
+                summary: 'Transmission Successful',
+                detail: 'Message successfully relayed to admin.',
+                life: 4000
+            });
+
+            // Reset form
+            form.value = { name: '', email: '', subject: '', message: '' };
+        })
+        .catch((error) => {
+            console.error('FAILED...', error);
+            toast.add({
+                severity: 'error',
+                summary: 'Transmission Failed',
+                detail: 'Network uplink failed. Please try again.',
+                life: 4000
+            });
+        })
+        .finally(() => {
+            loading.value = false;
+        });
 };
 </script>
 
 <template>
     <div class="relative min-h-screen font-sans text-[#2c4c52] overflow-hidden flex flex-col">
-        
-        <div class="fixed inset-0 z-0 pointer-events-none opacity-20" 
+
+        <Toast position="top-right" />
+        <div class="fixed inset-0 z-0 pointer-events-none opacity-20"
              style="background-image: linear-gradient(#7bc5cd 1px, transparent 1px), linear-gradient(90deg, #7bc5cd 1px, transparent 1px); background-size: 40px 40px;">
         </div>
         <div class="fixed top-[-20%] right-[-10%] w-[50vw] h-[50vw] bg-[#7bc5cd] rounded-full blur-[120px] opacity-20 z-0 pointer-events-none animate-pulse"></div>
@@ -45,7 +110,7 @@ const submit = () => {
 
         <div class="relative z-10 flex-1 flex items-center justify-center p-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-5xl w-full items-center">
-                
+
                 <div class="space-y-8">
                     <div>
                         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#2c4c52]/5 border border-[#2c4c52]/10 mb-4">
@@ -88,19 +153,31 @@ const submit = () => {
                     <h3 class="font-black text-xl text-[#2c4c52] uppercase mb-6 flex items-center gap-2">
                         <i class="pi pi-send text-[#7bc5cd]"></i> Transmit Message
                     </h3>
-                    
+
                     <div class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="space-y-2">
                                 <label class="font-mono text-xs font-bold text-[#2c4c52] uppercase">Identity (Name)</label>
                                 <InputText v-model="form.name" class="w-full" placeholder="John Doe" />
                             </div>
+
                             <div class="space-y-2">
                                 <label class="font-mono text-xs font-bold text-[#2c4c52] uppercase">Return Address (Email)</label>
-                                <InputText v-model="form.email" class="w-full" placeholder="email@domain.com" />
+
+                                <InputText
+                                    v-model="form.email"
+                                    class="w-full transition-colors"
+                                    :class="{ '!border-red-500 !bg-red-50': emailError }"
+                                    placeholder="email@domain.com"
+                                    @input="emailError = ''"
+                                />
+
+                                <small v-if="emailError" class="block font-mono text-[10px] font-bold text-red-500 animate-pulse mt-1">
+                                    <i class="pi pi-exclamation-triangle mr-1"></i> {{ emailError }}
+                                </small>
                             </div>
-                        </div>
-                        
+                            </div>
+
                         <div class="space-y-2">
                             <label class="font-mono text-xs font-bold text-[#2c4c52] uppercase">Subject Line</label>
                             <InputText v-model="form.subject" class="w-full" placeholder="Inquiry about..." />
@@ -111,13 +188,11 @@ const submit = () => {
                             <Textarea v-model="form.message" rows="5" class="w-full !rounded-2xl" placeholder="Type your message here..." />
                         </div>
 
-                        <!-- <Button label="INITIATE_TRANSMISSION" icon="pi pi-arrow-up-right" class="w-full !py-3 !text-lg" :loading="loading" @click="submit" /> -->
-                        
-                        <Button label="INITIATE_TRANSMISSION" 
-                            class="y2k-button-primary w-full !py-4 !text-lg" 
+                        <Button label="INITIATE_TRANSMISSION"
+                            class="y2k-button-primary w-full !py-4 !text-lg"
                             icon="pi pi-arrow-up-right"
-                            :loading="loading" 
-                            @click="login" />
+                            :loading="loading"
+                            @click="submit" />
                     </div>
                 </div>
             </div>

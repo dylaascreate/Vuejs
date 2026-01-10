@@ -12,7 +12,7 @@ const toast = useToast();
 const store = useRoadmapStore(); // Init Store
 
 // --- Config (View Logic) ---
-const isAcademic = computed(() => route.query.type === 'Academic');
+const isAcademic = computed(() => route.query.type === 'academic');
 
 const config = computed(() => {
     return isAcademic.value ? {
@@ -40,14 +40,30 @@ const config = computed(() => {
 
 // --- Actions ---
 
-const triggerGeneration = () => {
+const triggerGeneration = async () => {
     const payload = {
         level: route.query.level,
         type: route.query.type,
         query: route.query.query
     };
-    // Pass config, router, and toast to the store action
-    store.generateRoadmapWithAnimation(payload, config.value, router, toast);
+
+    try {
+        // 1. Await the store action (ensure your store returns the roadmap object!)
+        const roadmap = await store.generateRoadmapWithAnimation(payload, config.value, router, toast);
+        
+        // 2. Manual Redirect Override
+        // We check for both "academic" and "Academic" to be safe
+        if (roadmap.type && roadmap.type.toLowerCase() === 'academic') {
+             router.push({ name: 'roadmap-details-academic', params: { id: roadmap.id } });
+        } else {
+             // Fallback for general
+             router.push({ name: 'roadmap-details', params: { id: roadmap.id } });
+        }
+
+    } catch (e) {
+        console.error("Generation failed:", e);
+        // The store usually handles the error state, but you can add extra handling here
+    }
 };
 
 // --- Lifecycle ---

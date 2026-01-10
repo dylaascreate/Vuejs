@@ -6,15 +6,17 @@ import { useToast } from 'primevue/usetoast';
 const router = useRouter();
 const toast = useToast();
 
-const roadmapType = ref('General');
-const roadmapOptions = ['General', 'Academic'];
+// CHANGE 1: Default to lowercase to match Flask
+const roadmapType = ref('general');
+// CHANGE 2: Options are lowercase strings
+const roadmapOptions = ['general', 'academic'];
 
 // Form Inputs
 const query = ref('');
 const roadmapLevel = ref(null);
 
 // From User DB
-const targetCareer = ref('');
+const skillDomain = ref('Technology Field');
 const major = ref('Software Engineering');
 
 const levels = ref([
@@ -25,13 +27,15 @@ const levels = ref([
 
 // Preview Logic
 const previewTitle = computed(() => {
-    return roadmapType.value === 'General'
-        ? `Skill-Based Protocol: ${targetCareer.value || 'Unknown Target'}`
+    // CHANGE 3: Check for lowercase 'general'
+    return roadmapType.value === 'general'
+        ? `Skill-Based Protocol: ${skillDomain.value || 'Unknown Field'}`
         : `University Sync Protocol: ${major.value || 'Unknown Major'}`;
 });
 
 const previewDescription = computed(() => {
-    if (roadmapType.value === 'General') {
+    // CHANGE 4: Check for lowercase 'general'
+    if (roadmapType.value === 'general') {
         return "Direct-to-market skill acquisition. Bypasses academic prerequisites to focus on rapid employability velocity.";
     } else {
         return "Hybrid academic integration. synchronizes university curriculum with industry demands for optimal grade/skill ratio.";
@@ -39,8 +43,8 @@ const previewDescription = computed(() => {
 });
 
 const previewSteps = computed(() => {
-    // 1. General Roadmap: Skill/Career Progression (e.g. "Become a Frontend Dev")
-    if (roadmapType.value === 'General') {
+    // CHANGE 5: Check for lowercase 'general'
+    if (roadmapType.value === 'general') {
         return [
             { label: 'Fundamentals : Logic & Syntax', icon: 'pi pi-box' },
             { label: 'Core Tools : Git, CLI, IDEs', icon: 'pi pi-cog' },
@@ -49,7 +53,7 @@ const previewSteps = computed(() => {
             { label: 'Job Readiness : Interviews & CV', icon: 'pi pi-check-circle' }
         ];
     }
-    // 2. Academic Roadmap: Single Subject Syllabus (e.g. "Data Structures - Sem 1")
+    // Academic Roadmap
     else {
         return [
             { label: 'Course Intro : Weeks 1-2', icon: 'pi pi-info-circle' },
@@ -88,9 +92,9 @@ function generateRoadmap() {
     router.push({
         path: '/student/roadmap-loading',
         query: {
-            type: roadmapType.value,
-            level: roadmapLevel.value.name, // Sending the string name (e.g., 'Beginner')
-            query: query.value.trim()        // Sending the user's text input
+            type: roadmapType.value, // This is now 'general' or 'academic' (lowercase)
+            level: roadmapLevel.value.name, 
+            query: query.value.trim()        
         }
     });
 }
@@ -125,7 +129,7 @@ function generateRoadmap() {
                                 <button v-for="option in roadmapOptions" :key="option"
                                     @click="roadmapType = option"
                                     :class="[
-                                        'py-3 rounded-lg font-bold text-sm transition-all duration-300',
+                                        'py-3 rounded-lg font-bold text-sm transition-all duration-300 capitalize', 
                                         roadmapType === option
                                             ? 'bg-[#2c4c52] text-[#7bc5cd] shadow-md'
                                             : 'text-[#2c4c52]/60 hover:bg-white/50'
@@ -135,11 +139,11 @@ function generateRoadmap() {
                             </div>
                         </div>
 
-                        <div v-if="roadmapType === 'General'" class="space-y-6 animate-fade-in">
+                        <div v-if="roadmapType === 'general'" class="space-y-6 animate-fade-in">
                             <div class="space-y-2">
-                                <label class="font-mono text-xs font-bold text-[#2c4c52] uppercase">Query</label>
+                                <label class="font-mono text-xs font-bold text-[#2c4c52] uppercase">What do you want to learn?</label>
                                 <span class="p-input-icon-left w-full">
-                                    <InputText v-model="query" placeholder="e.g. I want to enhance my skill in laravel" class="y2k-input w-full" />
+                                    <InputText v-model="query" placeholder="e.g. Laravel" class="y2k-input w-full" />
                                 </span>
                             </div>
                             <div class="space-y-2">
@@ -148,11 +152,11 @@ function generateRoadmap() {
                             </div>
                         </div>
 
-                        <div v-if="roadmapType === 'Academic'" class="space-y-6 animate-fade-in">
+                        <div v-if="roadmapType === 'academic'" class="space-y-6 animate-fade-in">
                             <div class="space-y-2">
-                                <label class="font-mono text-xs font-bold text-[#2c4c52] uppercase">Query</label>
+                                <label class="font-mono text-xs font-bold text-[#2c4c52] uppercase">What do you want to learn?</label>
                                 <span class="p-input-icon-left w-full">
-                                    <InputText v-model="query" placeholder="e.g. I want to enhance my skill in laravel" class="y2k-input w-full" />
+                                    <InputText v-model="query" placeholder="e.g. Laravel" class="y2k-input w-full" />
                                 </span>
                             </div>
                             <div class="space-y-2">
