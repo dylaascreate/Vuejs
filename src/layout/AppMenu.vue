@@ -43,7 +43,7 @@ const model = computed(() => [
     // =============================================================================
     {
         label: 'Admin',
-        // visible: isAdmin.value, // <--- CONDITION ADDED
+        visible: isAdmin.value, // <--- CONDITION ADDED
         items: [
             { label: 'Admin Dashboard', icon: 'pi pi-fw pi-chart-line', to: '/admin/dashboard' },
             {

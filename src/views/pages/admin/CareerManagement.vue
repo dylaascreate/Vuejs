@@ -2,10 +2,14 @@
 import { FilterMatchMode } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
+import { useCareerStore } from '@/stores/career'; // Import the store
+import { storeToRefs } from 'pinia';
 
 const toast = useToast();
+const careerStore = useCareerStore();
+const { careers, isLoading } = storeToRefs(careerStore); // Use store state
+
 const dt = ref();
-const careers = ref([]);
 const careerDialog = ref(false);
 const deleteCareerDialog = ref(false);
 const deleteCareersDialog = ref(false);
@@ -16,12 +20,13 @@ const filters = ref({
 });
 const submitted = ref(false);
 
-const categories = ref([
-    { label: 'Engineering', value: 'Engineering' },
-    { label: 'Design', value: 'Design' },
-    { label: 'Product', value: 'Product' },
-    { label: 'Data', value: 'Data' },
-    { label: 'Marketing', value: 'Marketing' }
+const domains = ref([
+    { label: 'Software Engineering & Development', value: 'Engineering' },
+    { label: 'Data Science, AI & Machine Learning', value: 'Data-AI' },
+    { label: 'Infrastructure, Cloud & DevOps', value: 'Infrastructure' },
+    { label: 'Cybersecurity & Information Security', value: 'Security' },
+    { label: 'Product, Business & Management', value: 'Product' },
+    { label: 'User Experience (UX) & Design', value: 'Design' },
 ]);
 
 const statuses = ref([
@@ -30,15 +35,9 @@ const statuses = ref([
     { label: 'Draft', value: 'Draft' }
 ]);
 
-// Mock Data Loading
+// Load Data from API on Mount
 onMounted(() => {
-    careers.value = [
-        { id: 1001, name: 'Frontend Engineer', category: 'Engineering', description: 'Builds user interfaces using web technologies.', status: 'Active' },
-        { id: 1002, name: 'UX Designer', category: 'Design', description: 'Designs the user experience and interface.', status: 'Active' },
-        { id: 1003, name: 'Data Scientist', category: 'Data', description: 'Analyzes complex data to help make decisions.', status: 'Active' },
-        { id: 1004, name: 'Product Manager', category: 'Product', description: 'Oversees product development and strategy.', status: 'Active' },
-        { id: 1005, name: 'Legacy Systems Admin', category: 'Engineering', description: 'Maintains older infrastructure.', status: 'Deprecated' }
-    ];
+    careerStore.fetchCareers();
 });
 
 function openNew() {
@@ -52,24 +51,25 @@ function hideDialog() {
     submitted.value = false;
 }
 
-function saveCareer() {
+async function saveCareer() {
     submitted.value = true;
 
-    if (career?.value.name?.trim() && career?.value.category) {
-        if (career.value.id) {
-            // Update Existing
-            const index = findIndexById(career.value.id);
-            careers.value[index] = career.value;
-            toast.add({ severity: 'success', summary: 'System Update', detail: 'Career Path Modified', life: 3000 });
-        } else {
-            // Create New
-            career.value.id = createId();
-            careers.value.push(career.value);
-            toast.add({ severity: 'success', summary: 'New Node', detail: 'Career Path Initialized', life: 3000 });
+    if (career?.value.name?.trim() && career?.value.domain) {
+        try {
+            if (career.value.id) {
+                // Update Existing via Store
+                await careerStore.updateCareer(career.value.id, career.value);
+                toast.add({ severity: 'success', summary: 'System Update', detail: 'Career Path Modified', life: 3000 });
+            } else {
+                // Create New via Store
+                await careerStore.createCareer(career.value);
+                toast.add({ severity: 'success', summary: 'New Node', detail: 'Career Path Initialized', life: 3000 });
+            }
+            careerDialog.value = false;
+            career.value = {};
+        } catch (error) {
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to save career path', life: 3000 });
         }
-
-        careerDialog.value = false;
-        career.value = {};
     }
 }
 
@@ -83,30 +83,31 @@ function confirmDeleteCareer(item) {
     deleteCareerDialog.value = true;
 }
 
-function deleteCareer() {
-    careers.value = careers.value.filter((val) => val.id !== career.value.id);
-    deleteCareerDialog.value = false;
-    career.value = {};
-    toast.add({ severity: 'success', summary: 'Node Removed', detail: 'Career Path Deleted', life: 3000 });
-}
-
-function findIndexById(id) {
-    return careers.value.findIndex(c => c.id === id);
-}
-
-function createId() {
-    return Math.floor(Math.random() * 10000);
+async function deleteCareer() {
+    try {
+        await careerStore.deleteCareer(career.value.id);
+        deleteCareerDialog.value = false;
+        career.value = {};
+        toast.add({ severity: 'success', summary: 'Node Removed', detail: 'Career Path Deleted', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete career path', life: 3000 });
+    }
 }
 
 function confirmDeleteSelected() {
     deleteCareersDialog.value = true;
 }
 
-function deleteSelectedCareers() {
-    careers.value = careers.value.filter((val) => !selectedCareers.value.includes(val));
-    deleteCareersDialog.value = false;
-    selectedCareers.value = null;
-    toast.add({ severity: 'success', summary: 'Batch Removal', detail: 'Careers Deleted', life: 3000 });
+async function deleteSelectedCareers() {
+    try {
+        const ids = selectedCareers.value.map(val => val.id);
+        await careerStore.deleteCareers(ids);
+        deleteCareersDialog.value = false;
+        selectedCareers.value = null;
+        toast.add({ severity: 'success', summary: 'Batch Removal', detail: 'Careers Deleted', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete selected careers', life: 3000 });
+    }
 }
 
 function getStatusSeverity(status) {
@@ -164,6 +165,7 @@ function getStatusSeverity(status) {
                         ref="dt"
                         v-model:selection="selectedCareers"
                         :value="careers"
+                        :loading="isLoading"
                         dataKey="id"
                         :paginator="true"
                         :rows="10"
@@ -187,17 +189,19 @@ function getStatusSeverity(status) {
                             </template>
                         </Column>
 
-                        <Column field="category" header="SECTOR" sortable style="min-width: 12rem">
+                        <Column field="domain" header="SECTOR" sortable style="min-width: 12rem">
                             <template #body="slotProps">
                                 <span class="px-2 py-1 rounded text-[10px] font-bold uppercase border"
-                                      :class="{
-                                          'bg-blue-50 text-blue-600 border-blue-200': slotProps.data.category === 'Engineering',
-                                          'bg-purple-50 text-purple-600 border-purple-200': slotProps.data.category === 'Design',
-                                          'bg-green-50 text-green-600 border-green-200': slotProps.data.category === 'Data',
-                                          'bg-orange-50 text-orange-600 border-orange-200': slotProps.data.category === 'Product',
-                                          'bg-gray-50 text-gray-600 border-gray-200': slotProps.data.category === 'Marketing'
-                                      }">
-                                    {{ slotProps.data.category }}
+                                    :class="{
+                                        'bg-blue-50 text-blue-600 border-blue-200': slotProps.data.domain === 'Engineering',
+                                        'bg-purple-50 text-purple-600 border-purple-200': slotProps.data.domain === 'Data-AI',
+                                        'bg-orange-50 text-orange-600 border-orange-200': slotProps.data.domain === 'Infrastructure',
+                                        'bg-red-50 text-red-600 border-red-200': slotProps.data.domain === 'Security',
+                                        'bg-teal-50 text-teal-600 border-teal-200': slotProps.data.domain === 'Product',
+                                        'bg-pink-50 text-pink-600 border-pink-200': slotProps.data.domain === 'Design',
+                                        'bg-gray-50 text-gray-600 border-gray-200': !['Engineering','Data-AI','Infrastructure','Security','Product','Design'].includes(slotProps.data.domain)
+                                    }">
+                                    {{ slotProps.data.domain }}
                                 </span>
                             </template>
                         </Column>
@@ -247,9 +251,9 @@ function getStatusSeverity(status) {
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-1">
                         <label class="font-mono text-[10px] font-bold text-[#4a7a82] uppercase ml-1">Sector</label>
-                        <Select v-model="career.category" :options="categories" optionLabel="label" optionValue="value" placeholder="SELECT..." class="w-full y2k-dropdown"
-                                :class="{ '!border-red-500': submitted && !career.category }" />
-                        <small v-if="submitted && !career.category" class="text-red-500 text-[10px] font-bold">REQUIRED</small>
+                        <Select v-model="career.domain" :options="domains" optionLabel="label" optionValue="value" placeholder="SELECT..." class="w-full y2k-dropdown"
+                                :class="{ '!border-red-500': submitted && !career.domain }" />
+                        <small v-if="submitted && !career.domain" class="text-red-500 text-[10px] font-bold">REQUIRED</small>
                     </div>
                     <div class="space-y-1">
                         <label class="font-mono text-[10px] font-bold text-[#4a7a82] uppercase ml-1">Status</label>

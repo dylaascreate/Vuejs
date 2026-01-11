@@ -1,36 +1,19 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
+import { storeToRefs } from 'pinia';
+import { useProjectStore } from '@/stores/project'; // [1] Import Store
+import Skeleton from 'primevue/skeleton';
 
 const toast = useToast();
 const confirm = useConfirm();
-
-// --- Data ---
-const projects = ref([
-    {
-        id: 1,
-        title: 'E-Commerce Dashboard',
-        link: 'https://github.com/student/ecommerce',
-        about: 'A full-stack admin dashboard for managing products and orders. Built with Vue 3 and Laravel to handle high-volume transaction data.',
-        skills: ['Vue.js', 'Laravel', 'REST API'],
-        tools: ['VS Code', 'Postman', 'Docker'],
-        category: 'Personal',
-        value: null,
-    },
-    {
-        id: 2,
-        title: 'Freelance Landing Page',
-        link: 'https://client-site.com',
-        about: 'A high-conversion landing page for a local gym client. Focused on SEO velocity and mobile responsiveness protocols.',
-        skills: ['HTML', 'Tailwind CSS', 'SEO'],
-        tools: ['Figma', 'Vercel'],
-        category: 'Paid',
-        value: 500,
-    }
-]);
+const projectStore = useProjectStore(); // [2] Init Store
 
 // --- State ---
+// [3] Bind projects from store state
+const { userProjects: projects, isLoading } = storeToRefs(projectStore);
+
 const projectDialog = ref(false);
 const previewDialog = ref(false);
 const deleteDialog = ref(false);
@@ -39,6 +22,11 @@ const selectedProject = ref({});
 const submitted = ref(false);
 
 const categories = ref(['Personal', 'Paid']);
+
+// --- Lifecycle ---
+onMounted(() => {
+    projectStore.fetchUserProjects();
+});
 
 // --- Actions ---
 const openNew = () => {
@@ -52,29 +40,32 @@ const hideDialog = () => {
     submitted.value = false;
 };
 
-const saveProject = () => {
+const saveProject = async () => {
     submitted.value = true;
 
     if (project.value.title && project.value.about) {
-        if (project.value.id) {
-            // Update
-            const index = projects.value.findIndex(p => p.id === project.value.id);
-            projects.value[index] = project.value;
-            toast.add({ severity: 'success', summary: 'System Update', detail: 'Project Protocol Updated', life: 3000 });
-        } else {
-            // Create
-            project.value.id = createId();
-            projects.value.push(project.value);
-            toast.add({ severity: 'success', summary: 'System Entry', detail: 'New Project Initialized', life: 3000 });
+        try {
+            if (project.value.id) {
+                // [4] Update via Store
+                await projectStore.updateProject(project.value.id, project.value);
+                toast.add({ severity: 'success', summary: 'System Update', detail: 'Project Protocol Updated', life: 3000 });
+            } else {
+                // [5] Create via Store
+                await projectStore.createProject(project.value);
+                toast.add({ severity: 'success', summary: 'System Entry', detail: 'New Project Initialized', life: 3000 });
+            }
+            projectDialog.value = false;
+            project.value = {};
+        } catch (error) {
+            console.error(error);
+            toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to save project.', life: 3000 });
         }
-
-        projectDialog.value = false;
-        project.value = {};
     }
 };
 
 const editProject = (proj) => {
-    project.value = { ...proj };
+    // Clone the object to avoid direct mutation of store state before save
+    project.value = JSON.parse(JSON.stringify(proj));
     projectDialog.value = true;
 };
 
@@ -83,20 +74,21 @@ const confirmDelete = (proj) => {
     deleteDialog.value = true;
 };
 
-const deleteProject = () => {
-    projects.value = projects.value.filter(val => val.id !== project.value.id);
-    deleteDialog.value = false;
-    project.value = {};
-    toast.add({ severity: 'success', summary: 'File Deleted', detail: 'Project Removed from Database', life: 3000 });
+const deleteProject = async () => {
+    try {
+        // [6] Delete via Store
+        await projectStore.deleteProject(project.value.id);
+        deleteDialog.value = false;
+        project.value = {};
+        toast.add({ severity: 'success', summary: 'File Deleted', detail: 'Project Removed from Database', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete project.', life: 3000 });
+    }
 };
 
 const openPreview = (proj) => {
     selectedProject.value = { ...proj };
     previewDialog.value = true;
-};
-
-const createId = () => {
-    return Math.floor(Math.random() * 10000);
 };
 
 const formatCurrency = (value) => {
@@ -135,50 +127,91 @@ const getCategoryClass = (category) => {
                         Archive your development milestones. Track paid commissions and open-source contributions.
                     </p>
                 </div>
-                <Button label="INITIALIZE PROJECT" icon="pi pi-plus" class="y2k-button-primary !py-2 !px-4 !text-xs" @click="openNew" />
+                <Button label="INITIALIZE PROJECT" icon="pi pi-plus" class="y2k-button-primary !py-2 !px-4 !text-xs" @click="openNew" :loading="isLoading" />
             </div>
 
             <div class="col-span-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <div v-for="proj in projects" :key="proj.id"
-                     class="group bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(44,76,82,0.1)] transition-all duration-300 hover:-translate-y-1 relative flex flex-col h-full">
 
-                    <div class="h-1 bg-gradient-to-r from-[#7bc5cd] via-[#2c4c52] to-[#7bc5cd] opacity-0 group-hover:opacity-100 transition-opacity"></div>
-
-                    <div class="p-6 flex flex-col flex-1">
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="p-3 bg-[#e0f2f1] rounded-2xl text-[#2c4c52] border border-[#2c4c52]/5">
-                                <i class="pi pi-code text-xl"></i>
-                            </div>
-                            <span class="px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider" :class="getCategoryClass(proj.category)">
-                                {{ proj.category }}
-                            </span>
+                <template v-if="isLoading">
+                    <div v-for="i in 6" :key="i" class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-6 h-full flex flex-col gap-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <Skeleton size="3rem" borderRadius="1rem" class="bg-white/20"></Skeleton>
+                            <Skeleton width="4rem" height="1.5rem" borderRadius="1rem" class="bg-white/20"></Skeleton>
                         </div>
-
-                        <h3 class="text-xl font-black text-[#2c4c52] mb-2 leading-tight">{{ proj.title }}</h3>
-                        <p class="text-xs font-medium text-[#4a7a82] mb-6 line-clamp-3 leading-relaxed flex-1">{{ proj.about }}</p>
-
-                        <div class="flex flex-wrap gap-2 mb-6">
-                            <span v-for="(skill, i) in proj.skills.slice(0, 3)" :key="i"
-                                  class="text-[10px] font-bold px-2 py-1 rounded bg-white/50 border border-[#2c4c52]/10 text-[#2c4c52] uppercase tracking-wide">
-                                {{ skill }}
-                            </span>
-                            <span v-if="proj.skills.length > 3" class="text-[10px] text-[#4a7a82] self-center font-mono font-bold">+{{ proj.skills.length - 3 }}</span>
-                        </div>
-
-                        <div class="flex items-center justify-between pt-4 border-t border-[#2c4c52]/10 mt-auto">
-                            <div class="flex gap-1">
-                                <Button icon="pi pi-eye" text rounded class="!w-8 !h-8 !text-[#2c4c52] hover:bg-[#2c4c52]/10" @click="openPreview(proj)" v-tooltip.bottom="'View Details'" />
-                                <Button icon="pi pi-pencil" text rounded class="!w-8 !h-8 !text-[#2c4c52] hover:bg-[#2c4c52]/10" @click="editProject(proj)" v-tooltip.bottom="'Edit'" />
-                                <Button icon="pi pi-trash" text rounded class="!w-8 !h-8 !text-red-500 hover:bg-red-50" @click="confirmDelete(proj)" v-tooltip.bottom="'Delete'" />
+                        <div class="space-y-3 flex-1">
+                            <Skeleton width="80%" height="1.5rem" class="bg-white/20"></Skeleton>
+                            <div class="space-y-2">
+                                <Skeleton width="100%" height="0.6rem" class="bg-white/20"></Skeleton>
+                                <Skeleton width="100%" height="0.6rem" class="bg-white/20"></Skeleton>
+                                <Skeleton width="60%" height="0.6rem" class="bg-white/20"></Skeleton>
                             </div>
-                            <span v-if="proj.category === 'Paid'" class="font-mono font-bold text-[#2c4c52] text-sm">
-                                {{ formatCurrency(proj.value) }}
-                            </span>
+                        </div>
+                        <div class="flex gap-2 mt-4">
+                            <Skeleton width="3rem" height="1.2rem" borderRadius="4px" class="bg-white/20"></Skeleton>
+                            <Skeleton width="3rem" height="1.2rem" borderRadius="4px" class="bg-white/20"></Skeleton>
+                        </div>
+                        <div class="flex justify-between items-center pt-4 border-t border-[#2c4c52]/5 mt-auto">
+                            <div class="flex gap-2">
+                                <Skeleton shape="circle" size="2rem" class="bg-white/20"></Skeleton>
+                                <Skeleton shape="circle" size="2rem" class="bg-white/20"></Skeleton>
+                                <Skeleton shape="circle" size="2rem" class="bg-white/20"></Skeleton>
+                            </div>
+                            <Skeleton width="4rem" height="1rem" class="bg-white/20"></Skeleton>
                         </div>
                     </div>
-                </div>
+                </template>
 
-                <div v-if="projects.length === 0" class="col-span-12 text-center py-20 bg-white/30 backdrop-blur-sm rounded-3xl border border-dashed border-[#2c4c52]/20">
+                <template v-else>
+                    <div v-for="proj in projects" :key="proj.id"
+                         class="group bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(44,76,82,0.1)] transition-all duration-300 hover:-translate-y-1 relative flex flex-col h-full">
+
+                        <div class="h-1 bg-gradient-to-r from-[#7bc5cd] via-[#2c4c52] to-[#7bc5cd] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+                        <div class="p-6 flex flex-col flex-1">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="p-3 bg-[#e0f2f1] rounded-2xl text-[#2c4c52] border border-[#2c4c52]/5">
+                                    <i class="pi pi-code text-xl"></i>
+                                </div>
+                                <span class="px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider" :class="getCategoryClass(proj.category)">
+                                    {{ proj.category }}
+                                </span>
+                            </div>
+
+                            <h3 class="text-xl font-black text-[#2c4c52] mb-2 leading-tight">{{ proj.title }}</h3>
+                            <p class="text-xs font-medium text-[#4a7a82] mb-6 line-clamp-3 leading-relaxed flex-1">{{ proj.about }}</p>
+
+                            <div class="flex flex-wrap gap-2 mb-6"
+                                v-if="(proj.skills && proj.skills.length) || (proj.tools && proj.tools.length)">
+
+                                <span v-for="(skill, i) in (Array.isArray(proj.skills) ? proj.skills : [])"
+                                    :key="'skill-' + i"
+                                    class="text-[10px] font-bold px-2 py-1 rounded bg-white/50 border border-[#2c4c52]/10 text-[#2c4c52] uppercase tracking-wide">
+                                    {{ skill }}
+                                </span>
+
+                                <span v-for="(tool, i) in (Array.isArray(proj.tools) ? proj.tools : [])"
+                                    :key="'tool-' + i"
+                                    class="text-[10px] font-bold px-2 py-1 rounded bg-[#7bc5cd]/10 border border-[#7bc5cd]/20 text-[#2c4c52] uppercase tracking-wide">
+                                    {{ tool }}
+                                </span>
+
+                            </div>
+
+                            <div class="flex items-center justify-between pt-4 border-t border-[#2c4c52]/10 mt-auto">
+                                <div class="flex gap-1">
+                                    <Button icon="pi pi-eye" text rounded class="!w-8 !h-8 !text-[#2c4c52] hover:bg-[#2c4c52]/10" @click="openPreview(proj)" v-tooltip.bottom="'View Details'" />
+                                    <Button icon="pi pi-pencil" text rounded class="!w-8 !h-8 !text-[#2c4c52] hover:bg-[#2c4c52]/10" @click="editProject(proj)" v-tooltip.bottom="'Edit'" />
+                                    <Button icon="pi pi-trash" text rounded class="!w-8 !h-8 !text-red-500 hover:bg-red-50" @click="confirmDelete(proj)" v-tooltip.bottom="'Delete'" />
+                                </div>
+                                <span v-if="proj.category === 'Paid'" class="font-mono font-bold text-[#2c4c52] text-sm">
+                                    {{ formatCurrency(proj.value) }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <div v-if="!isLoading && projects.length === 0" class="col-span-12 text-center py-20 bg-white/30 backdrop-blur-sm rounded-3xl border border-dashed border-[#2c4c52]/20">
                     <div class="w-16 h-16 bg-[#2c4c52]/5 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="pi pi-folder-open text-2xl text-[#2c4c52]/40"></i>
                     </div>
@@ -252,7 +285,7 @@ const getCategoryClass = (category) => {
             <template #footer>
                 <div class="flex gap-2 justify-end pt-4 border-t border-[#2c4c52]/10">
                     <Button label="ABORT" icon="pi pi-times" text class="!text-[#2c4c52] !font-bold !text-xs" @click="hideDialog" />
-                    <Button label="SAVE ENTRY" icon="pi pi-check" class="y2k-button-primary !text-xs !py-2" @click="saveProject" />
+                    <Button label="SAVE ENTRY" icon="pi pi-check" class="y2k-button-primary !text-xs !py-2" @click="saveProject" :loading="isLoading" />
                 </div>
             </template>
         </Dialog>
@@ -270,7 +303,6 @@ const getCategoryClass = (category) => {
             <div class="flex flex-col gap-6 pt-4">
                 <div class="bg-[#2c4c52] p-8 rounded-2xl text-center relative overflow-hidden group border border-[#2c4c52]">
                     <div class="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.05)_50%,transparent_75%,transparent_100%)] bg-[length:250%_250%,100%_100%] animate-shine opacity-0 group-hover:opacity-100 pointer-events-none"></div>
-                    <!-- <i class="pi pi-desktop text-6xl text-[#7bc5cd] mb-6 block"></i><br> -->
                     <a :href="selectedProject.link" target="_blank" class="inline-block relative z-10">
                         <Button label="ACCESS TERMINAL" icon="pi pi-external-link" class="y2k-button-secondary !bg-[#2c4c52] !text-[#7bc5cd] !border-[#7bc5cd] hover:!bg-[#7bc5cd] hover:!text-[#2c4c52]" />
                     </a>
@@ -291,10 +323,10 @@ const getCategoryClass = (category) => {
                         <div>
                             <h4 class="font-mono text-[10px] font-bold text-[#4a7a82] uppercase mb-2">Modules & Dependencies</h4>
                             <div class="flex flex-wrap gap-2">
-                                <span v-for="skill in selectedProject.skills" :key="skill" class="px-2 py-1 bg-[#2c4c52]/5 border border-[#2c4c52]/10 text-[#2c4c52] text-xs font-bold rounded">
+                                <span v-for="skill in (Array.isArray(selectedProject.skills) ? selectedProject.skills : [])" :key="skill" class="px-2 py-1 bg-[#2c4c52]/5 border border-[#2c4c52]/10 text-[#2c4c52] text-xs font-bold rounded">
                                     {{ skill }}
                                 </span>
-                                <span v-for="tool in selectedProject.tools" :key="tool" class="px-2 py-1 bg-[#7bc5cd]/10 border border-[#7bc5cd]/20 text-[#2c4c52] text-xs font-bold rounded">
+                                <span v-for="tool in (Array.isArray(selectedProject.tools) ? selectedProject.tools : [])" :key="tool" class="px-2 py-1 bg-[#7bc5cd]/10 border border-[#7bc5cd]/20 text-[#2c4c52] text-xs font-bold rounded">
                                     {{ tool }}
                                 </span>
                             </div>
@@ -317,7 +349,7 @@ const getCategoryClass = (category) => {
             <template #footer>
                 <div class="flex gap-2 justify-end pt-4 border-t border-[#2c4c52]/10">
                     <Button label="CANCEL" text class="!text-[#2c4c52] !font-bold !text-xs" @click="deleteDialog = false" />
-                    <Button label="PURGE DATA" severity="danger" class="!font-bold !text-xs" @click="deleteProject" />
+                    <Button label="PURGE DATA" severity="danger" class="!font-bold !text-xs" @click="deleteProject" :loading="isLoading" />
                 </div>
             </template>
         </Dialog>

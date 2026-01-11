@@ -1,5 +1,8 @@
 <script setup>
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
 
 const currentYear = new Date().getFullYear();
 
@@ -73,10 +76,12 @@ const contactEmail = 'legal@devnexus.system';
                     </a>
                 </div>
 
+
             </div>
 
-           
 
+
+            <Button label="RETURN_HOME" icon="pi pi-arrow-left" class="p-button-text !font-mono !font-bold !text-[#2c4c52]" @click="router.push('/landing')" />
         </div>
     </div>
 </template>

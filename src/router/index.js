@@ -167,67 +167,67 @@ const router = createRouter({
                     path: '/student/dashboard',
                     name: 'student-dashboard',
                     component: () => import('@/views/pages/StudentDashboard.vue'),
-                    meta: { title: 'Student Dashboard', roles: ['student'] }
+                    meta: { title: 'Student Dashboard', roles: ['student','admin'] }
                 },
                 {
                     path: '/student/roadmap-generator',
                     name: 'roadmap-generator',
                     component: () => import('@/views/pages/RoadmapGenerator.vue'),
-                    // meta: { title: 'AI Generator', roles: ['student'] }
+                    meta: { title: 'AI Generator', roles: ['student','admin'] }
                 },
                 {
                     path: '/student/roadmap-loading',
                     name: 'roadmap-loading',
                     component: () => import('@/views/pages/RoadmapLoading.vue'),
-                    // meta: { title: 'Generating...', roles: ['student'] }
+                    meta: { title: 'Generating...', roles: ['student','admin'] }
                 },
                 {
                     path: '/student/roadmap-details/:id',
                     name: 'roadmap-details',
                     component: () => import('@/views/pages/RoadmapDetails.vue'),
-                    // meta: { title: 'Roadmap Details', roles: ['student'] }
+                    meta: { title: 'Roadmap Details', roles: ['student','admin'] }
                 },
                 {
                     path: '/student/roadmap-details-academic/:id',
                     name: 'roadmap-details-academic',
                     component: () => import('@/views/pages/RoadmapDetailsAcademic.vue'),
-                    // meta: { title: 'Roadmap Details', roles: ['student'] }
+                    meta: { title: 'Roadmap Details', roles: ['student','admin'] }
                 },
                 {
                     path: '/student/roadmaps',
                     name: 'student-roadmaps',
                     component: () => import('@/views/pages/StudentRoadmapList.vue'),
-                    // meta: { title: 'My Roadmaps', roles: ['student'] }
+                    meta: { title: 'My Roadmaps', roles: ['student','admin'] }
                 },
                 {
                     path: '/student/skills',
                     name: 'student-skills',
                     component: () => import('@/views/pages/StudentSkills.vue'),
-                    meta: { title: 'My Skills', roles: ['student'] }
+                    meta: { title: 'My Skills', roles: ['student','admin'] }
                 },
                 {
                     path: '/student/courses',
                     name: 'student-courses',
                     component: () => import('@/views/pages/StudentCourses.vue'),
-                    meta: { title: 'My Courses', roles: ['student'] }
+                    meta: { title: 'My Courses', roles: ['student','admin'] }
                 },
                 {
                     path: '/student/projects',
                     name: 'student-projects',
                     component: () => import('@/views/pages/StudentProjects.vue'),
-                    meta: { title: 'My Projects', roles: ['student'] }
+                    meta: { title: 'My Projects', roles: ['student','admin'] }
                 },
                 {
                     path: '/student/calendar',
                     name: 'student-calendar',
                     component: () => import('@/views/pages/LearningCalendar.vue'),
-                    meta: { title: 'Learning Calendar', roles: ['student'] }
+                    meta: { title: 'Learning Calendar', roles: ['student','admin'] }
                 },
                 {
                     path: '/student/careers',
                     name: 'student-careers',
                     component: () => import('@/views/pages/CareerProgression.vue'),
-                    meta: { title: 'Career Progression', roles: ['student'] }
+                    meta: { title: 'Career Progression', roles: ['student','admin'] }
                 },
 
                 // --- 4.4 UI KIT / UTILITIES (For Development/Demo) ---

@@ -81,17 +81,17 @@ const startRoadmap = async () => {
 const toggleTask = async (task) => {
     try {
         // Optimistic Update
-        roadmap.value.progress = progressPercentage.value; 
-        
+        roadmap.value.progress = progressPercentage.value;
+
         await roadmapStore.updateTaskStatus(task.id, task.completed);
-        
+
         if (task.completed) {
             const isDone = progressPercentage.value === 100;
-            toast.add({ 
-                severity: 'success', 
-                summary: isDone ? 'All Tasks Done' : 'Progress Saved', 
-                detail: isDone ? 'You are ready to complete the course!' : 'Marked as complete.', 
-                life: 1000 
+            toast.add({
+                severity: 'success',
+                summary: isDone ? 'All Tasks Done' : 'Progress Saved',
+                detail: isDone ? 'You are ready to complete the course!' : 'Marked as complete.',
+                life: 1000
             });
         }
     } catch (error) {
@@ -149,10 +149,10 @@ const saveTask = async () => {
                 order_index: phase.tasks ? phase.tasks.length + 1 : 1
             };
             const created = await roadmapStore.addTask(currentPhaseId.value, newTask);
-            
+
             if (!phase.tasks) phase.tasks = [];
             phase.tasks.push(created || { ...newTask, id: Date.now(), completed: false });
-            
+
             toast.add({ severity: 'success', summary: 'Added', detail: 'New topic added.', life: 2000 });
         }
         taskDialog.value = false;
@@ -170,7 +170,7 @@ const exportToPDF = async () => {
         const element = contentToExport.value;
         // Fix: Use scroll dimensions to capture entire height of content
         const w = element.scrollWidth;
-        const h = element.scrollHeight; 
+        const h = element.scrollHeight;
 
         // Filter out buttons (.no-export)
         const filter = (node) => !node.classList?.contains('no-export');
@@ -278,7 +278,7 @@ const exportToPDF = async () => {
                             </div>
                         </div>
                         <p class="text-[#4a7a82] font-medium max-w-xl text-sm leading-relaxed">
-                            This roadmap maps your academic syllabus to industry requirements for {{ roadmap?.career_goal }}.<br>
+                            This roadmap maps your academic syllabus to industry requirements.<br>
                             Mastering these course topics directly builds the <span class="font-bold text-[#2c4c52]">skills employers hire for</span>.
                         </p>
                     </div>
@@ -386,11 +386,11 @@ const exportToPDF = async () => {
                             <p class="text-sm text-[#7bc5cd] mb-6">Align this roadmap with your university schedule.</p>
                             <div class="flex flex-col gap-3">
                                 <Button v-if="roadmap?.status !== 'active'" label="START COURSE" icon="pi pi-play" class="y2k-button-primary-dark w-full !text-xs" @click="startRoadmap" />
-                                
-                                <Button :label="isExporting ? 'GENERATING PDF...' : 'DOWNLOAD SYLLABUS'" 
-                                        :icon="isExporting ? 'pi pi-spin pi-spinner' : 'pi pi-file-pdf'" 
+
+                                <Button :label="isExporting ? 'GENERATING PDF...' : 'DOWNLOAD SYLLABUS'"
+                                        :icon="isExporting ? 'pi pi-spin pi-spinner' : 'pi pi-file-pdf'"
                                         :disabled="isExporting"
-                                        class="y2k-button-secondary-dark w-full !text-xs" 
+                                        class="y2k-button-secondary-dark w-full !text-xs"
                                         @click="exportToPDF"/>
                             </div>
                         </div>

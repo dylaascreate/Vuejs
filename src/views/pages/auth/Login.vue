@@ -43,22 +43,15 @@ const handleLogin = async () => {
 };
 
 // === TESTING UTILITIES (REMOVE BEFORE PRODUCTION) ===
+const autofillAdmin = () => {
+    form.value.email = 'admin@devnexus.com';
+    form.value.password = 'password';
+};
 const autofillStudent = () => {
-    form.value.email = 'student@devnexus.ts';
+    form.value.email = 'student@devnexus.com';
     form.value.password = 'password';
 };
 
-const autofillAdmin = () => {
-    form.value.email = 'admin@devnexus.ts';
-    form.value.password = 'admin';
-};
-
-// Optional: auto login after autofill
-// const autofillStudent = async () => {
-//     form.value.email = 'student@devnexus.com';
-//     form.value.password = 'password123';
-//     await handleLogin();
-// };
 </script>
 
 <template>
@@ -77,17 +70,18 @@ const autofillAdmin = () => {
                 <p class="font-mono text-sm text-[#4a7a82] tracking-widest">/// DEVNEXUS_AUTH_PROTOCOL</p>
             </div>
             <div class="mb-6 flex gap-3 justify-center">
-    <Button
-        label="Student"
-        type="button"
-        class="y2k-button-secondary"
-        @click="autofillStudent"
-    />
+
     <Button
         label="Admin"
         type="button"
         class="y2k-button-secondary"
         @click="autofillAdmin"
+    />
+    <Button
+        label="Student"
+        type="button"
+        class="y2k-button-secondary"
+        @click="autofillStudent"
     />
 </div>
 

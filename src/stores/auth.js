@@ -5,13 +5,12 @@ export const useAuthStore = defineStore('auth', {
     state: () => ({
         authUser: null,
         errors: {}
-    },
-    {
-        persist: true,
     }),
+    persist: true,
     getters: {
         user: (state) => state.authUser,
-        isAuthenticated: (state) => !!state.authUser // Returns true if user exists
+        isAuthenticated: (state) => !!state.authUser, // Returns true if user exists
+        getErrors: (state) => state.errors
     },
     actions: {
         async getUser() {
@@ -42,9 +41,17 @@ export const useAuthStore = defineStore('auth', {
         },
         // Login action
         async login(email, password) {
-            await api.get('/sanctum/csrf-cookie');
-            await api.post('/api/login', { email, password });
-            await this.getUser(); // Fetch user data after login
+            this.errors = {};
+            try {
+                await api.get('/sanctum/csrf-cookie');
+                await api.post('/api/login', { email, password });
+                await this.getUser(); // Fetch user data after login
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    this.errors = error.response.data.errors;
+                }
+                throw error;
+            }
         },
         // Logout action
         async logout() {
@@ -60,11 +67,62 @@ export const useAuthStore = defineStore('auth', {
                 sessionStorage.clear();
 
                 // 3. FORCE DELETE THE COOKIE
-                // This sets the cookie expiration to the past, effectively removing it
                 document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            }
+        },
+        // Update Profile Action
+        async updateProfile(profileData) {
+            this.errors = {};
+            try {
+                // Using POST for FormData (file uploads) often works best with Laravel if _method is set to PUT
+                // or if the endpoint is defined as POST. Assuming a standard update endpoint here.
+                // If passing FormData, ensure the API endpoint accepts it.
+                await api.post('/api/user/profile-information', profileData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+                await this.getUser(); // Refresh user data
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    this.errors = error.response.data.errors;
+                }
+                throw error;
+            }
+        },
+        // Update Password Action
+        async updatePassword(passwordData) {
+            this.errors = {};
+            try {
+                await api.put('/api/user/password', passwordData);
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    this.errors = error.response.data.errors;
+                }
+                throw error;
+            }
+        },
+        async deleteAccount(password) {
+            this.errors = {};
+            try {
+                // Usually requires password confirmation
+                await api.post('/api/user/confirm-password', { password });
+                // Then delete
+                await api.delete('/api/user'); // Ensure your API supports DELETE /api/user
 
-                // Optional: If you use a 'laravel_session' check and it's not HttpOnly
-                // document.cookie = "laravel_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                // Cleanup local state
+                this.authUser = null;
+                localStorage.clear();
+                sessionStorage.clear();
+                document.cookie = "XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            } catch (error) {
+                if (error.response && error.response.data.errors) {
+                     this.errors = error.response.data.errors;
+                } else {
+                     // Generic error or password mismatch
+                     this.errors = { password: ['Unable to delete account. Please check your password.'] };
+                }
+                throw error;
             }
         }
     }

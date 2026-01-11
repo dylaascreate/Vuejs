@@ -2,14 +2,14 @@
 import { onMounted, onUnmounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
-import { useRoadmapStore } from '@/stores/roadmap'; // Import Store
+import { useRoadmapStore } from '@/stores/roadmap';
 import ProgressBar from 'primevue/progressbar';
 import Button from 'primevue/button';
 
 const router = useRouter();
 const route = useRoute();
 const toast = useToast();
-const store = useRoadmapStore(); // Init Store
+const store = useRoadmapStore();
 
 // --- Config (View Logic) ---
 const isAcademic = computed(() => route.query.type === 'academic');
@@ -41,28 +41,45 @@ const config = computed(() => {
 // --- Actions ---
 
 const triggerGeneration = async () => {
+    // 1. Extract ALL params from URL (including the new career ones)
+    const {
+        target_career,
+        missing_skills,
+        query,
+        level,
+        type,
+        skills
+    } = route.query;
+
+    // 2. Construct Payload matching Laravel Controller
     const payload = {
-        level: route.query.level,
-        type: route.query.type,
-        query: route.query.query
+        // "Initialize Pathway" Params (Scenario 2)
+        target_career: target_career || null,
+        missing_skills: missing_skills || null,
+
+        // Standard Params (Scenario 1)
+        query: query || '', // Fallback to empty string if missing
+        level: level || 'Beginner',
+        type: type || 'general',
+
+        // Parse skills if passed (useful for custom skill contexts)
+        skills: skills ? JSON.parse(skills) : []
     };
 
     try {
-        // 1. Await the store action (ensure your store returns the roadmap object!)
+        // 3. Trigger Store Action
         const roadmap = await store.generateRoadmapWithAnimation(payload, config.value, router, toast);
-        
-        // 2. Manual Redirect Override
-        // We check for both "academic" and "Academic" to be safe
+
+        // 4. Redirect based on Roadmap Type
         if (roadmap.type && roadmap.type.toLowerCase() === 'academic') {
              router.push({ name: 'roadmap-details-academic', params: { id: roadmap.id } });
         } else {
-             // Fallback for general
              router.push({ name: 'roadmap-details', params: { id: roadmap.id } });
         }
 
     } catch (e) {
         console.error("Generation failed:", e);
-        // The store usually handles the error state, but you can add extra handling here
+        // Error state handled by store reactive variables
     }
 };
 
@@ -73,7 +90,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-    store.clearGenerationInterval(); // Clean up timer in store
+    store.clearGenerationInterval();
 });
 </script>
 

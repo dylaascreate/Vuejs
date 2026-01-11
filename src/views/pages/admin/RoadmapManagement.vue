@@ -2,10 +2,15 @@
 import { FilterMatchMode } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
+import { useRoadmapStore } from '@/stores/roadmap'; // Import Store
+import { storeToRefs } from 'pinia';
 
 const toast = useToast();
+const roadmapStore = useRoadmapStore();
+// Use storeToRefs to keep 'roadmaps' and 'loading' reactive
+const { allRoadmaps: roadmaps, isLoading } = storeToRefs(roadmapStore);
+
 const dt = ref();
-const roadmaps = ref([]);
 const deleteRoadmapDialog = ref(false);
 const deleteRoadmapsDialog = ref(false);
 const viewRoadmapDialog = ref(false);
@@ -15,84 +20,9 @@ const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
+// Fetch Data from API
 onMounted(() => {
-    roadmaps.value = [
-        {
-            id: 1001,
-            user: 'Alice Johnson',
-            email: 'alice@devnexus.com',
-            title: 'Frontend Developer Mastery',
-            type: 'General',
-            career: 'Frontend Engineer',
-            created_at: '2025-01-10',
-            status: 'Active',
-            completed_tasks: 25,
-            total_tasks: 40,
-            progress: 62,
-            generation_status: 'Success',
-            nodes: ['HTML/CSS Basics', 'Vue.js Fundamentals', 'State Management']
-        },
-        {
-            id: 1002,
-            user: 'Bob Smith',
-            email: 'bob@devnexus.com',
-            title: 'DES3053: Software Testing',
-            type: 'Academic',
-            career: 'QA Engineer',
-            created_at: '2025-02-15',
-            status: 'Active',
-            completed_tasks: 5,
-            total_tasks: 30,
-            progress: 16,
-            generation_status: 'Success',
-            nodes: ['Unit Testing', 'Integration Testing', 'Jest Basics']
-        },
-        {
-            id: 1003,
-            user: 'David Lee',
-            email: 'david@devnexus.com',
-            title: 'AWS Cloud Architect',
-            type: 'General',
-            career: 'Cloud Architect',
-            created_at: '2025-03-01',
-            status: 'Draft',
-            completed_tasks: 0,
-            total_tasks: 50,
-            progress: 0,
-            generation_status: 'Error',
-            nodes: []
-        },
-        {
-            id: 1004,
-            user: 'Chris Evans',
-            email: 'chris@devnexus.com',
-            title: 'CS201: Data Structures',
-            type: 'Academic',
-            career: 'Backend Developer',
-            created_at: '2024-11-20',
-            status: 'Archived',
-            completed_tasks: 20,
-            total_tasks: 20,
-            progress: 100,
-            generation_status: 'Success',
-            nodes: ['Arrays', 'Linked Lists', 'Trees', 'Graphs']
-        },
-        {
-            id: 1005,
-            user: 'Eva Green',
-            email: 'eva@devnexus.com',
-            title: 'UI/UX Principles',
-            type: 'General',
-            career: 'Product Designer',
-            created_at: '2025-01-05',
-            status: 'Active',
-            completed_tasks: 12,
-            total_tasks: 24,
-            progress: 50,
-            generation_status: 'Success',
-            nodes: ['Color Theory', 'Typography', 'Figma Wireframing']
-        }
-    ];
+    roadmapStore.fetchRoadmaps();
 });
 
 function viewDetails(item) {
@@ -105,35 +35,50 @@ function confirmDeleteRoadmap(item) {
     deleteRoadmapDialog.value = true;
 }
 
-function deleteRoadmap() {
-    roadmaps.value = roadmaps.value.filter((val) => val.id !== roadmap.value.id);
-    deleteRoadmapDialog.value = false;
-    roadmap.value = {};
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'Roadmap Deleted', life: 3000 });
+async function deleteRoadmap() {
+    try {
+        await roadmapStore.deleteRoadmap(roadmap.value.id);
+        deleteRoadmapDialog.value = false;
+        roadmap.value = {};
+        toast.add({ severity: 'success', summary: 'Successful', detail: 'Roadmap Deleted', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete roadmap', life: 3000 });
+    }
 }
 
 function confirmDeleteSelected() {
     deleteRoadmapsDialog.value = true;
 }
 
-function deleteSelectedRoadmaps() {
-    roadmaps.value = roadmaps.value.filter((val) => !selectedRoadmaps.value.includes(val));
-    deleteRoadmapsDialog.value = false;
-    selectedRoadmaps.value = null;
-    toast.add({ severity: 'success', summary: 'Successful', detail: 'Roadmaps Deleted', life: 3000 });
+async function deleteSelectedRoadmaps() {
+    try {
+        // Execute delete for all selected items in parallel
+        const deletePromises = selectedRoadmaps.value.map(val => roadmapStore.deleteRoadmap(val.id));
+        await Promise.all(deletePromises);
+
+        deleteRoadmapsDialog.value = false;
+        selectedRoadmaps.value = null;
+        toast.add({ severity: 'success', summary: 'Successful', detail: 'Roadmaps Deleted', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete selected roadmaps', life: 3000 });
+    }
 }
 
 function getStatusSeverity(status) {
     switch (status) {
+        case 'active': // Lowercase matching for API consistency
         case 'Active': return 'success';
+        case 'draft':
         case 'Draft': return 'info';
+        case 'archived':
         case 'Archived': return 'secondary';
         default: return null;
     }
 }
 
 function getGenerationIcon(status) {
-    return status === 'Success' ? 'pi pi-verified' : 'pi pi-exclamation-triangle';
+    // Check for various success indicators that might come from DB
+    return (status === 'Success' || status === 'completed') ? 'pi pi-verified' : 'pi pi-exclamation-triangle';
 }
 </script>
 
@@ -170,6 +115,7 @@ function getGenerationIcon(status) {
                         ref="dt"
                         v-model:selection="selectedRoadmaps"
                         :value="roadmaps"
+                        :loading="isLoading"
                         dataKey="id"
                         :paginator="true"
                         :rows="10"
@@ -194,15 +140,21 @@ function getGenerationIcon(status) {
 
                         <Column selectionMode="multiple" style="width: 3rem" :exportable="false"></Column>
 
-                        <Column field="user" header="INITIATOR" sortable style="min-width: 14rem">
+                        <Column field="user.name" header="INITIATOR" sortable style="min-width: 14rem">
                             <template #body="slotProps">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-xl bg-[#2c4c52]/10 flex items-center justify-center border border-[#2c4c52]/10">
-                                        <span class="font-black text-[#2c4c52]">{{ slotProps.data.user.charAt(0) }}</span>
+                                        <span class="font-black text-[#2c4c52]">
+                                            {{ slotProps.data.user?.name ? slotProps.data.user.name.charAt(0) : 'U' }}
+                                        </span>
                                     </div>
                                     <div class="flex flex-col">
-                                        <span class="font-bold text-[#2c4c52] text-sm">{{ slotProps.data.user }}</span>
-                                        <span class="font-mono text-[10px] text-[#4a7a82]">{{ slotProps.data.email }}</span>
+                                        <span class="font-bold text-[#2c4c52] text-sm">
+                                            {{ slotProps.data.user?.name || 'Unknown User' }}
+                                        </span>
+                                        <span class="font-mono text-[10px] text-[#4a7a82]">
+                                            {{ slotProps.data.user?.email || 'No Email' }}
+                                        </span>
                                     </div>
                                 </div>
                             </template>
@@ -220,8 +172,8 @@ function getGenerationIcon(status) {
                         <Column field="type" header="TYPE" sortable style="min-width: 8rem">
                             <template #body="slotProps">
                                 <span class="font-mono text-[10px] font-bold uppercase px-2 py-1 rounded border"
-                                      :class="slotProps.data.type === 'Academic' ? 'bg-[#2c4c52] text-[#7bc5cd] border-[#2c4c52]' : 'bg-white text-[#4a7a82] border-[#2c4c52]/20'">
-                                    {{ slotProps.data.type }}
+                                      :class="(slotProps.data.type || '').toLowerCase() === 'academic' ? 'bg-[#2c4c52] text-[#7bc5cd] border-[#2c4c52]' : 'bg-white text-[#4a7a82] border-[#2c4c52]/20'">
+                                    {{ slotProps.data.type || 'General' }}
                                 </span>
                             </template>
                         </Column>
@@ -229,11 +181,13 @@ function getGenerationIcon(status) {
                         <Column field="generation_status" header="AI_STATUS" sortable style="min-width: 10rem">
                             <template #body="slotProps">
                                 <div class="flex items-center gap-2">
-                                    <i :class="[getGenerationIcon(slotProps.data.generation_status),
-                                       slotProps.data.generation_status === 'Success' ? 'text-green-500' : 'text-red-500']"></i>
+                                    <i :class="[
+                                        getGenerationIcon(slotProps.data.generation_status || 'Success'),
+                                        (slotProps.data.generation_status === 'Success' || !slotProps.data.generation_status) ? 'text-green-500' : 'text-red-500'
+                                    ]"></i>
                                     <span class="font-bold text-xs"
-                                          :class="slotProps.data.generation_status === 'Success' ? 'text-[#2c4c52]' : 'text-red-500'">
-                                        {{ slotProps.data.generation_status === 'Success' ? 'OPTIMAL' : 'ERROR' }}
+                                          :class="(slotProps.data.generation_status === 'Success' || !slotProps.data.generation_status) ? 'text-[#2c4c52]' : 'text-red-500'">
+                                        {{ slotProps.data.generation_status === 'Success' || !slotProps.data.generation_status ? 'OPTIMAL' : 'ERROR' }}
                                     </span>
                                 </div>
                             </template>
@@ -243,13 +197,13 @@ function getGenerationIcon(status) {
                             <template #body="slotProps">
                                 <div class="w-full">
                                     <div class="flex justify-between text-[10px] mb-1 font-mono font-bold">
-                                        <span class="text-[#4a7a82]">{{ slotProps.data.completed_tasks }}/{{ slotProps.data.total_tasks }} STEPS</span>
-                                        <span class="text-[#2c4c52]">{{ slotProps.data.progress }}%</span>
+                                        <span class="text-[#4a7a82]">{{ slotProps.data.completed_tasks || 0 }}/{{ slotProps.data.total_tasks || 0 }} STEPS</span>
+                                        <span class="text-[#2c4c52]">{{ slotProps.data.progress || 0 }}%</span>
                                     </div>
                                     <div class="h-1.5 w-full bg-[#2c4c52]/10 rounded-full overflow-hidden">
                                         <div class="h-full rounded-full transition-all duration-500"
                                              :class="slotProps.data.generation_status === 'Error' ? 'bg-red-400' : 'bg-[#2c4c52]'"
-                                             :style="{ width: slotProps.data.progress + '%' }"></div>
+                                             :style="{ width: (slotProps.data.progress || 0) + '%' }"></div>
                                     </div>
                                 </div>
                             </template>
@@ -294,8 +248,8 @@ function getGenerationIcon(status) {
                     <div class="bg-[#2c4c52]/5 p-4 rounded-xl border border-[#2c4c52]/10">
                         <span class="font-mono text-[10px] font-bold text-[#4a7a82] uppercase mb-2 block">Generation Status</span>
                         <div class="flex items-center gap-2">
-                            <i :class="[getGenerationIcon(roadmap.generation_status), roadmap.generation_status === 'Success' ? 'text-green-500' : 'text-red-500']"></i>
-                            <span class="font-bold text-[#2c4c52] uppercase text-sm">{{ roadmap.generation_status }}</span>
+                            <i :class="[getGenerationIcon(roadmap.generation_status || 'Success'), (roadmap.generation_status === 'Success' || !roadmap.generation_status) ? 'text-green-500' : 'text-red-500']"></i>
+                            <span class="font-bold text-[#2c4c52] uppercase text-sm">{{ roadmap.generation_status || 'Success' }}</span>
                         </div>
                     </div>
                     <div class="bg-[#2c4c52]/5 p-4 rounded-xl border border-[#2c4c52]/10">
@@ -306,26 +260,26 @@ function getGenerationIcon(status) {
 
                 <div class="flex items-center gap-4 p-4 border rounded-xl border-[#2c4c52]/20 bg-white">
                     <div class="w-12 h-12 rounded-full bg-[#2c4c52] flex items-center justify-center font-black text-xl text-[#7bc5cd]">
-                        {{ roadmap.user ? roadmap.user.charAt(0) : 'U' }}
+                        {{ roadmap.user?.name ? roadmap.user.name.charAt(0) : (roadmap.user ? roadmap.user.charAt(0) : 'U') }}
                     </div>
                     <div>
-                        <div class="font-bold text-[#2c4c52]">{{ roadmap.user }}</div>
-                        <div class="text-xs text-[#4a7a82] font-mono">{{ roadmap.email }}</div>
-                        <div class="text-[10px] text-[#7bc5cd] mt-1 font-bold uppercase tracking-wide">{{ roadmap.career }}</div>
+                        <div class="font-bold text-[#2c4c52]">{{ roadmap.user?.name || roadmap.user || 'Unknown' }}</div>
+                        <div class="text-xs text-[#4a7a82] font-mono">{{ roadmap.user?.email || roadmap.email || 'No Email' }}</div>
+                        <div class="text-[10px] text-[#7bc5cd] mt-1 font-bold uppercase tracking-wide">{{ roadmap.career || 'N/A' }}</div>
                     </div>
                 </div>
 
                 <div>
                     <div class="flex justify-between items-end mb-2">
                         <span class="font-bold text-[#2c4c52] text-sm uppercase">Completion Progress</span>
-                        <span class="font-mono text-[#2c4c52] font-bold">{{ roadmap.progress }}%</span>
+                        <span class="font-mono text-[#2c4c52] font-bold">{{ roadmap.progress || 0 }}%</span>
                     </div>
                     <div class="h-3 w-full bg-[#2c4c52]/10 rounded-full overflow-hidden">
                         <div class="h-full bg-gradient-to-r from-[#7bc5cd] to-[#2c4c52] rounded-full"
-                             :style="{ width: roadmap.progress + '%' }"></div>
+                             :style="{ width: (roadmap.progress || 0) + '%' }"></div>
                     </div>
                     <div class="text-center mt-2 text-[10px] text-[#4a7a82] font-mono uppercase">
-                        {{ roadmap.completed_tasks }} completed out of {{ roadmap.total_tasks }} milestones
+                        {{ roadmap.completed_tasks || 0 }} completed out of {{ roadmap.total_tasks || 0 }} milestones
                     </div>
                 </div>
 
@@ -335,7 +289,7 @@ function getGenerationIcon(status) {
                         <span v-for="node in roadmap.nodes" :key="node" class="px-3 py-1 bg-white rounded-md text-xs font-bold text-[#2c4c52] border border-[#2c4c52]/20 flex items-center gap-2">
                             <i class="pi pi-check-circle text-[#7bc5cd] text-[10px]"></i> {{ node }}
                         </span>
-                        <span class="px-3 py-1 text-xs font-mono font-bold text-[#4a7a82]">+ {{ roadmap.total_tasks - roadmap.nodes.length }} MORE</span>
+                        <span class="px-3 py-1 text-xs font-mono font-bold text-[#4a7a82]">+ {{ (roadmap.total_tasks || 0) - roadmap.nodes.length }} MORE</span>
                     </div>
                 </div>
             </div>
@@ -353,7 +307,7 @@ function getGenerationIcon(status) {
                 <div>
                     <span class="font-bold block text-[#2c4c52] mb-2">Delete Protocol?</span>
                     <p class="text-[#4a7a82] text-sm mb-1">
-                        You are about to remove <b>{{ roadmap.title }}</b> owned by <b>{{ roadmap.user }}</b>.
+                        You are about to remove <b>{{ roadmap.title }}</b> owned by <b>{{ roadmap.user?.name || roadmap.user }}</b>.
                     </p>
                     <p class="text-red-500 text-xs font-mono uppercase">This will permanently delete user progress.</p>
                 </div>
@@ -411,7 +365,7 @@ function getGenerationIcon(status) {
     border-color: #ef4444 !important;
 }
 
-.y2k-input {
+.y2k-input, :deep(.y2k-input) {
     background: rgba(255, 255, 255, 0.8) !important;
     border: 1px solid rgba(44, 76, 82, 0.15) !important;
     border-radius: 8px !important;

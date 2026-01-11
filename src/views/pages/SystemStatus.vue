@@ -2,7 +2,9 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import axios from '@/lib/axios';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
 const toast = useToast();
 
 const POLL_INTERVAL = 30000;
@@ -65,14 +67,15 @@ const pgsqlStatus = ref({
 
 const services = ref([
     { id: 'roadmap', name: 'Roadmap Generator', icon: 'pi-map', status: 'unknown', latency: 0 },
-    { id: 'cv', name: 'CV Evaluator', icon: 'pi-file-check', status: 'unknown', latency: 0 },
-    { id: 'quiz', name: 'Quiz Generator', icon: 'pi-question-circle', status: 'unknown', latency: 0 },
     { id: 'chat', name: 'AI Chat Helper', icon: 'pi-comments', status: 'unknown', latency: 0 },
-    // { id: 'skill', name: 'Skill Recommender', icon: 'pi-bolt', status: 'unknown', latency: 0 },
-    // These specific services are not in monitor.py yet, so they will default to unknown
+    { id: 'cv', name: 'CV Evaluator', icon: 'pi-file-check', status: 'unknown', latency: 0 },
+    { id: 'skill', name: 'Skill Recommender', icon: 'pi-bolt', status: 'unknown', latency: 0 },
+    { id: 'course', name: 'Course Recommender', icon: 'pi-bolt', status: 'unknown', latency: 0 },
     { id: 'career', name: 'Career Recommender', icon: 'pi-compass', status: 'unknown', latency: 0 },
     { id: 'gap_analysis', name: 'Skill Gap Analyzer', icon: 'pi-chart-bar', status: 'unknown', latency: 0 },
-    { id: 'project', name: 'Project Recommender', icon: 'pi-box', status: 'unknown', latency: 0 }
+    { id: 'quiz', name: 'Quiz Generator', icon: 'pi-question-circle', status: 'unknown', latency: 0 },
+    // These specific services are not in monitor.py yet, so they will default to unknown
+    // { id: 'project', name: 'Project Recommender', icon: 'pi-box', status: 'unknown', latency: 0 }
 ]);
 
 const logs = ref([]);
@@ -165,7 +168,7 @@ const checkSystemStatus = async () => {
             'skill': 'skill_recommender',
             'career': 'career_recommender',
             'gap_analysis': 'skill_gap',
-            'project': 'project_recommender'
+            'course': 'course_recommender'
 
         };
 
@@ -235,6 +238,7 @@ onUnmounted(() => {
                         <span class="font-mono text-xs font-bold text-[#2c4c52]/70 tracking-widest uppercase">INFRA_MONITOR_V2.1</span>
                     </div>
                     <h2 class="text-3xl font-black text-[#2c4c52] uppercase tracking-tighter">System Status</h2>
+
                 </div>
 
                 <div class="text-right">
@@ -480,6 +484,7 @@ onUnmounted(() => {
                 </div>
             </div>
 
+            <Button label="RETURN_HOME" icon="pi pi-arrow-left" class="p-button-text !font-mono !font-bold !text-[#2c4c52]" @click="router.push('/landing')" />
         </div>
     </div>
 </template>

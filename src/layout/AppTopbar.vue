@@ -129,16 +129,16 @@ const markAllRead = () => {
                         </button>
                     </router-link>
 
-        <button type="button" class="layout-topbar-action" @click="toggleNotifications">
+        <!-- <button type="button" class="layout-topbar-action" @click="toggleNotifications">
             <OverlayBadge severity="danger" v-if="notifications.some((n) => n.unread)">
                 <i class="pi pi-inbox"></i>
             </OverlayBadge>
             <i v-else class="pi pi-inbox"></i>
             <span>Inbox</span>
 
-        </button>
+        </button> -->
 
-        <OverlayPanel ref="op" class="y2k-inbox-overlay">
+        <!-- <OverlayPanel ref="op" class="y2k-inbox-overlay">
             <div class="w-80 md:w-96 overflow-hidden">
                 <div class="flex items-center justify-between p-4 border-b border-[#2c4c52]/10 bg-[#2c4c52]/5">
                     <div>
@@ -172,7 +172,7 @@ const markAllRead = () => {
                     <button class="font-mono text-[10px] font-black text-[#2c4c52] uppercase hover:underline">View All Transmissions</button>
                 </div>
             </div>
-        </OverlayPanel>
+        </OverlayPanel> -->
 
                     <router-link to="/profile">
                         <button type="button" class="layout-topbar-action">

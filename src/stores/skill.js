@@ -1,10 +1,11 @@
+// src/stores/skill.js
 import { defineStore } from 'pinia';
 import api from '../lib/axios';
 
 export const useSkillStore = defineStore('skill', {
     state: () => ({
-        skills: [],          // Global system skills (Admin view)
-        userSkills: [],      // Authenticated user's specific skills/mastery (Student view)
+        skills: [],          // Global system skills (Admin view / Dropdown options)
+        userSkills: [],      // Authenticated user's specific skills (Student view)
         activeSkill: null,   // For editing/details
         stats: null,         // For radar charts/widgets
         loading: false,
@@ -17,33 +18,86 @@ export const useSkillStore = defineStore('skill', {
         isLoading: (state) => state.loading,
         getErrors: (state) => state.errors,
         // Helper: Filter verified skills for the student
-        verifiedUserSkills: (state) => state.userSkills.filter(s => s.verified)
+        verifiedUserSkills: (state) => state.userSkills.filter(s => s.verified),
+        /**
+         * AGGREGATION LOGIC:
+         * 1. Extract Domains from System Skills.
+         * 2. Map User Skills to these Domains using ID.
+         * 3. Calculate Average Proficiency per Domain.
+         */
+        getDomainAggregates: (state) => {
+            // A. Get all unique domains from the System Skills table
+            const systemDomains = {};
+            state.skills.forEach(skill => {
+                const domain = skill.category || skill.domain || 'Uncategorized';
+                if (!systemDomains[domain]) {
+                    systemDomains[domain] = { total: 0, count: 0, label: domain };
+                }
+            });
+
+            // B. Aggregate User Data into these domains
+            state.userSkills.forEach(userSkill => {
+                // Find the corresponding system skill to get the correct Domain
+                // Handle cases where userSkill.skill might be nested or just an ID
+                const skillId = userSkill.skill_id || userSkill.id;
+                const systemSkill = state.skills.find(s => s.id === skillId);
+
+                if (systemSkill) {
+                    const domain = systemSkill.category || systemSkill.domain || 'Uncategorized';
+                    const proficiency = parseInt(userSkill.proficiency || userSkill.pivot?.proficiency || 0);
+
+                    if (systemDomains[domain]) {
+                        systemDomains[domain].total += proficiency;
+                        systemDomains[domain].count += 1;
+                    }
+                }
+            });
+
+            // C. Format for Chart (Label + Average Score)
+            return Object.values(systemDomains).map(d => ({
+                domain: d.label,
+                score: d.count > 0 ? Math.round(d.total / d.count) : 0,
+                skillCount: d.count // Useful if you want to show "5 skills" in tooltip
+            })).sort((a, b) => a.domain.localeCompare(b.domain));
+        }
     },
 
     actions: {
-        // --- Global Skills (Admin / System) ---
+        // =========================================================================
+        // 1. GLOBAL SYSTEM SKILLS (Admin / General Listing)
+        // =========================================================================
 
-        // Fetch all available system skills
-        async fetchSkills(params = {}) {
+        async fetchSkills() {
             this.loading = true;
             try {
-                // Params can handle filtering like ?domain=Frontend
-                const response = await api.get('/api/skills', { params });
+                const response = await api.get('/api/skills');
                 this.skills = response.data.data || response.data;
-                this.errors = {};
             } catch (error) {
-                this.handleError(error);
+                console.error('Failed to fetch system skills:', error);
             } finally {
                 this.loading = false;
             }
         },
 
-        // Create a new system skill (Admin)
+        // Fetch the current user's skill matrix
+        async fetchUserMatrix() {
+            this.loading = true;
+            try {
+                const response = await api.get('/api/student/skills');
+                this.userSkills = response.data.data || response.data;
+            } catch (error) {
+                console.error('Failed to fetch user matrix:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+
         async createSkill(data) {
             this.loading = true;
             this.errors = {};
             try {
                 const response = await api.post('/api/skills', data);
+                // Push new system skill to local list
                 this.skills.push(response.data.data || response.data);
                 return response.data;
             } catch (error) {
@@ -54,7 +108,6 @@ export const useSkillStore = defineStore('skill', {
             }
         },
 
-        // Update a system skill (Admin)
         async updateSkill(id, data) {
             this.loading = true;
             this.errors = {};
@@ -76,7 +129,6 @@ export const useSkillStore = defineStore('skill', {
             }
         },
 
-        // Delete a system skill (Admin)
         async deleteSkill(id) {
             this.loading = true;
             try {
@@ -90,13 +142,15 @@ export const useSkillStore = defineStore('skill', {
             }
         },
 
-        // --- Student Specific (User Matrix) ---
+        // =========================================================================
+        // 2. STUDENT SPECIFIC (User Matrix)
+        // =========================================================================
 
-        // Fetch the current user's skill matrix (with levels/mastery)
         async fetchUserMatrix() {
             this.loading = true;
             try {
                 const response = await api.get('/api/student/skills');
+                // Controller returns flat objects with 'proficiency' and 'verified' merged in
                 this.userSkills = response.data.data || response.data;
             } catch (error) {
                 this.handleError(error);
@@ -105,25 +159,40 @@ export const useSkillStore = defineStore('skill', {
             }
         },
 
-        // Add a skill to the user's profile (or update mastery level)
+        /**
+         * Attach or Update a skill for the user.
+         * * @param {Number|String} skillId - The ID of the existing skill OR 'new' if creating custom
+         * @param {Object} data - { proficiency: 50, name: "Custom Name" (if new), domain: "..." }
+         */
         async updateUserSkill(skillId, data) {
             this.loading = true;
             this.errors = {};
             try {
-                // If skillId is missing or 'new', pass 'new' to backend but ensure data has 'name'
+                // Controller Logic:
+                // 1. If numeric ID provided -> Finds Skill -> Attaches/Updates Pivot
+                // 2. If 'new' (or non-numeric) provided -> Checks 'name' in body -> Creates Skill -> Attaches Pivot
+
                 const targetId = (skillId && skillId !== 'new') ? skillId : 'new';
 
-                const response = await api.post(`/api/student/skills/${targetId}`, data);
+                // Ensure default proficiency if missing (Controller requires it)
+                const payload = {
+                    proficiency: 1, // Default to 1% if not specified
+                    ...data
+                };
+
+                const response = await api.post(`/api/student/skills/${targetId}`, payload);
                 const updatedEntry = response.data.data || response.data;
 
                 // Update local userSkills state
-                // Remove old entry if it existed (to avoid duplicates if ID changed from 'new' to '105')
+                // Check if we are updating an existing entry in the user's matrix
                 const index = this.userSkills.findIndex(s => s.id === updatedEntry.id);
+
                 if (index !== -1) {
                     this.userSkills[index] = updatedEntry;
                 } else {
                     this.userSkills.push(updatedEntry);
                 }
+
                 return updatedEntry;
             } catch (error) {
                 this.handleError(error);
@@ -133,12 +202,12 @@ export const useSkillStore = defineStore('skill', {
             }
         },
 
-        // Remove a skill from user profile (detach)
         async removeUserSkill(skillId) {
             this.loading = true;
             try {
                 await api.delete(`/api/student/skills/${skillId}`);
-                this.userSkills = this.userSkills.filter(s => s.id !== skillId && s.skill_id !== skillId);
+                // Remove from local userSkills array
+                this.userSkills = this.userSkills.filter(s => s.id !== skillId);
             } catch (error) {
                 this.handleError(error);
                 throw error;
@@ -147,9 +216,10 @@ export const useSkillStore = defineStore('skill', {
             }
         },
 
-        // --- Analytics ---
+        // =========================================================================
+        // 3. ANALYTICS & UTILS
+        // =========================================================================
 
-        // Fetch data for SkillRadarWidget and other charts
         async fetchSkillStats() {
             try {
                 const response = await api.get('/api/skills/stats');
@@ -158,25 +228,7 @@ export const useSkillStore = defineStore('skill', {
                 console.error('Failed to load skill stats', error);
             }
         },
-        // src/stores/roadmap.js
-        async addSkillToProfile(skillName) {
-            try {
-                const response = await api.post('/api/user/skills', {
-                    name: skillName,
-                    proficiency: 1 // Default to 1%
-                });
 
-                // Update local user skills list in the store
-                // Assuming you have a userSkills array in your state
-                this.userSkills.push(response.data);
-                return response.data;
-            } catch (error) {
-                console.error("Failed to add skill:", error);
-                throw error;
-            }
-        },
-
-        // --- Error Handling ---
         handleError(error) {
             if (error.response && error.response.status === 422) {
                 this.errors = error.response.data.errors;

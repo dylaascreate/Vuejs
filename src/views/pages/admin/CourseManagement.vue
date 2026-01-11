@@ -4,137 +4,352 @@ import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
 
 const toast = useToast();
-const courses = ref([]);
 const expandedRows = ref({});
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
-// Dialogs
+// Dialogs & State
 const courseDialog = ref(false);
 const topicDialog = ref(false);
 const deleteDialog = ref(false);
 const submitted = ref(false);
 
-// State
+// State for Editing/Deleting
 const currentCourse = ref({});
 const currentTopic = ref({});
-const activeParentCourse = ref(null);
+const activeParentCourse = ref(null); // Tracks which course a topic belongs to
 const itemToDelete = ref(null);
-const deleteType = ref(null);
+const deleteType = ref(null); // 'course' or 'topic'
+
+// --- Mock Data ---
+// Transform the course_db data into the UI format
+const courses = ref([
+  {
+    id: '1',
+    code: 'DEK3023',
+    name: 'Probability and Statistical Data Analysis',
+    semester: 'Y2S1',
+    department: 'MATH',
+    credits: 3,
+    topics: [
+      { id: 't1-1', name: 'Week 1: Statistics & Variables', skills: ["Statistical Data Analysis", "Probability Modeling"] },
+      { id: 't1-2', name: 'Week 2-4: Probability & Experiments', skills: ["Hypothesis Testing", "Data Visualization"] },
+      { id: 't1-3', name: 'Week 8-14: Estimation & Regression', skills: ["Python (Pandas)", "Linear Regression"] }
+    ]
+  },
+  {
+    id: '2',
+    code: 'DEK3033',
+    name: 'Numerical Methods For Computing',
+    semester: 'Y2S1',
+    department: 'MATH',
+    credits: 3,
+    topics: [
+      { id: 't2-1', name: 'Week 1-3: Computational Algorithms', skills: ["Numerical Analysis", "Algorithm Design"] },
+      { id: 't2-2', name: 'Week 4-6: Linear Equations', skills: ["MATLAB", "LU Factorization"] },
+      { id: 't2-3', name: 'Week 7-12: Calculus & Interpolation', skills: ["Numerical Integration", "Curve Fitting"] }
+    ]
+  },
+  {
+    id: '3',
+    code: 'DEP3013',
+    name: 'Instructional Tech in Courseware Dev',
+    semester: 'Y3S1',
+    department: 'DES',
+    credits: 3,
+    topics: [
+      { id: 't3-1', name: 'Week 1-4: ISD Models', skills: ["Instructional Design (ADDIE)", "Learning Theories"] },
+      { id: 't3-2', name: 'Week 5-7: UI/UX & Storyboarding', skills: ["Figma", "User Interface Design"] },
+      { id: 't3-3', name: 'Week 9-14: VR/AR Development', skills: ["Unity", "Educational Software Engineering"] }
+    ]
+  },
+  {
+    id: '4',
+    code: 'DEQ3063',
+    name: 'Software Project Management',
+    semester: 'Y3S1',
+    department: 'CS',
+    credits: 3,
+    topics: [
+      { id: 't4-1', name: 'Week 1-4: Project Initiation', skills: ["Feasibility Analysis", "Stakeholder Management"] },
+      { id: 't4-2', name: 'Week 5-9: Estimation & Planning', skills: ["Agile (Scrum)", "COCOMO II"] },
+      { id: 't4-3', name: 'Week 10-14: Scheduling & Risk', skills: ["Gantt Charts", "Risk Management"] }
+    ]
+  },
+  {
+    id: '5',
+    code: 'DEQ3093',
+    name: 'Software Configuration Management',
+    semester: 'Y3S1',
+    department: 'CS',
+    credits: 3,
+    topics: [
+      { id: 't5-1', name: 'Week 1-3: SCM Concepts', skills: ["Version Control (Git)", "Baseline Management"] },
+      { id: 't5-2', name: 'Week 4-8: Change Control', skills: ["CI/CD Pipelines", "Change Request Protocols"] },
+      { id: 't5-3', name: 'Week 9-14: Verification & Audit', skills: ["Software Auditing", "Release Management"] }
+    ]
+  },
+  {
+    id: '6',
+    code: 'DES3043',
+    name: 'Software Design',
+    semester: 'Y2S1',
+    department: 'CS',
+    credits: 3,
+    topics: [
+      { id: 't6-1', name: 'Week 1-4: Architecture Views', skills: ["Software Architecture", "Mobile App Design"] },
+      { id: 't6-2', name: 'Week 5-9: Web & API Design', skills: ["Microservices", "RESTful API Design"] },
+      { id: 't6-3', name: 'Week 10-14: Detailed Design', skills: ["Design Patterns", "SDD Documentation"] }
+    ]
+  },
+  {
+    id: '7',
+    code: 'DES3023',
+    name: 'Software Requirements & Specs',
+    semester: 'Y1S2',
+    department: 'CS',
+    credits: 3,
+    topics: [
+      { id: 't7-1', name: 'Week 1-4: Elicitation', skills: ["Requirements Engineering", "Stakeholder Interviews"] },
+      { id: 't7-2', name: 'Week 5-9: UML Modeling', skills: ["UML (Use Case/Sequence)", "StarUML"] },
+      { id: 't7-3', name: 'Week 10-14: SRS Documentation', skills: ["Technical Writing", "Requirements Validation"] }
+    ]
+  },
+  {
+    id: '8',
+    code: 'DES3073',
+    name: 'Software Engineering Project',
+    semester: 'Y3S1',
+    department: 'CS',
+    credits: 3,
+    topics: [
+      { id: 't8-1', name: 'Week 1-4: Architecture & SRS', skills: ["Full-Stack Dev (Laravel)", "Database Design"] },
+      { id: 't8-2', name: 'Week 5-10: Backend/Frontend Dev', skills: ["Defensive Programming", "API Integration"] },
+      { id: 't8-3', name: 'Week 11-14: Testing & Migration', skills: ["Regression Testing", "System Deployment"] }
+    ]
+  },
+  {
+    id: '9',
+    code: 'DES3053',
+    name: 'Software Testing and Quality',
+    semester: 'Y3S1',
+    department: 'CS',
+    credits: 3,
+    topics: [
+      { id: 't9-1', name: 'Week 1-3: Testing Lifecycles', skills: ["SQA", "Component Testing"] },
+      { id: 't9-2', name: 'Week 4-9: Dynamic Testing', skills: ["Black-Box Testing", "White-Box Testing"] },
+      { id: 't9-3', name: 'Week 10-14: UAT & API Testing', skills: ["User Acceptance Testing", "Postman"] }
+    ]
+  },
+  {
+    id: '10',
+    code: 'DES3113',
+    name: 'Mobile App Design & Development',
+    semester: 'Y3S1',
+    department: 'CS',
+    credits: 3,
+    topics: [
+      { id: 't10-1', name: 'Week 1-4: Flutter Architecture', skills: ["Flutter & Dart", "Declarative UI"] },
+      { id: 't10-2', name: 'Week 5-9: Interaction & Persistence', skills: ["Firebase Firestore", "State Management"] },
+      { id: 't10-3', name: 'Week 10-14: Advanced UI & Deploy', skills: ["App Store Deployment", "Push Notifications"] }
+    ]
+  },
+  {
+    id: '11',
+    code: 'DTN3023',
+    name: 'Computer Networks',
+    semester: 'Y1S2',
+    department: 'ENG',
+    credits: 3,
+    topics: [
+      { id: 't11-1', name: 'Week 1-4: Application Layer', skills: ["TCP/IP", "DNS Protocols"] },
+      { id: 't11-2', name: 'Week 5-11: Transport & Network', skills: ["Routing Algorithms", "IPv4 Subnetting"] },
+      { id: 't11-3', name: 'Week 12-14: Data Link Layer', skills: ["MAC Addressing", "Packet Analysis"] }
+    ]
+  },
+  {
+    id: '12',
+    code: 'DTN3043',
+    name: 'Operating Systems',
+    semester: 'Y2S1',
+    department: 'CS',
+    credits: 3,
+    topics: [
+      { id: 't12-1', name: 'Week 1-6: Process Management', skills: ["Thread Management", "Scheduling"] },
+      { id: 't12-2', name: 'Week 7-9: Memory Management', skills: ["Paging & Segmentation", "Virtual Memory"] },
+      { id: 't12-3', name: 'Week 10-14: Storage & Security', skills: ["RAID Structures", "Access Matrix"] }
+    ]
+  },
+  {
+    id: '13',
+    code: 'DTS3013',
+    name: 'Structured Programming',
+    semester: 'Y1S1',
+    department: 'CS',
+    credits: 3,
+    topics: [
+      { id: 't13-1', name: 'Week 1-4: Syntax & Logic', skills: ["C++ Programming", "Control Structures"] },
+      { id: 't13-2', name: 'Week 5-9: Functions & Pointers', skills: ["Memory Management", "Modular Programming"] },
+      { id: 't13-3', name: 'Week 10-14: Arrays & Structs', skills: ["Data Structures", "File I/O"] }
+    ]
+  },
+  {
+    id: '14',
+    code: 'DTS3093',
+    name: 'Object Oriented Programming',
+    semester: 'Y1S2',
+    department: 'CS',
+    credits: 3,
+    topics: [
+      { id: 't14-1', name: 'Week 1-5: OOP Principles', skills: ["Encapsulation", "Java Programming"] },
+      { id: 't14-2', name: 'Week 6-11: Class Diagrams', skills: ["UML Modeling", "Java Collections"] },
+      { id: 't14-3', name: 'Week 12-14: Advanced OOP', skills: ["Inheritance", "Polymorphism"] }
+    ]
+  }
+]);
+
+// Since we defined the data directly in the ref, we can leave onMounted empty or use it to clear filters
+onMounted(() => {
+    // Data is already reactive in the courses ref above
+});
 
 // Options
 const semesters = ref([
     { label: 'Year 1 - Sem 1', value: 'Y1S1' },
     { label: 'Year 1 - Sem 2', value: 'Y1S2' },
     { label: 'Year 2 - Sem 1', value: 'Y2S1' },
+    { label: 'Year 2 - Sem 2', value: 'Y2S2' },
     { label: 'Year 3 - Sem 1', value: 'Y3S1' }
 ]);
 
 const departments = ref([
     { label: 'Computer Science', value: 'CS' },
     { label: 'Mathematics', value: 'MATH' },
-    { label: 'Engineering', value: 'ENG' },
-    { label: 'Design', value: 'DES' }
+    { label: 'Design', value: 'DES' },
+    { label: 'Engineering', value: 'ENG' }
 ]);
 
-// Initial Data
-onMounted(() => {
-    courses.value = [
-        {
-            id: '100',
-            code: 'CS101',
-            name: 'Intro to Programming',
-            semester: 'Y1S1',
-            department: 'CS',
-            credits: 3,
-            topics: [
-                { id: 't1', name: 'Week 1: Setup & Variables', skills: ['Python Installation', 'Variables', 'Data Types'] },
-                { id: 't2', name: 'Week 2: Control Flow', skills: ['If/Else Logic', 'Loops'] }
-            ]
-        },
-        {
-            id: '101',
-            code: 'DES3053',
-            name: 'Software Testing',
-            semester: 'Y3S1',
-            department: 'DES',
-            credits: 3,
-            topics: [
-                { id: 't3', name: 'Phase 1: Manual Testing', skills: ['Black Box Testing', 'Test Case Design'] },
-                { id: 't4', name: 'Phase 2: Automation', skills: ['Selenium', 'Java', 'JUnit'] }
-            ]
-        }
-    ];
-});
+// Helper Functions
+const getDeptColor = (dept) => {
+    switch (dept) {
+        case 'CS': return 'bg-blue-50 text-blue-600 border-blue-200';
+        case 'DES': return 'bg-purple-50 text-purple-600 border-purple-200';
+        case 'MATH': return 'bg-green-50 text-green-600 border-green-200';
+        default: return 'bg-gray-50 text-gray-600 border-gray-200';
+    }
+};
 
-// --- Course Actions ---
+const createId = () => Math.floor(Math.random() * 100000).toString();
+
+// ==========================================
+//  ACTIONS: Expand / Collapse
+// ==========================================
+const expandAll = () => {
+    const _expandedRows = {};
+    courses.value.forEach((c) => (_expandedRows[c.id] = true));
+    expandedRows.value = _expandedRows;
+    toast.add({ severity: 'info', summary: 'Expanded', detail: 'All rows expanded', life: 1000 });
+};
+
+const collapseAll = () => {
+    expandedRows.value = {};
+    toast.add({ severity: 'info', summary: 'Collapsed', detail: 'All rows collapsed', life: 1000 });
+};
+
+// ==========================================
+//  ACTIONS: Course CRUD
+// ==========================================
 const openNewCourse = () => {
-    currentCourse.value = { topics: [] };
+    currentCourse.value = {
+        department: 'CS',
+        semester: 'Y1S1',
+        credits: 3,
+        topics: [] // Initialize empty topics
+    };
     submitted.value = false;
+    courseDialog.value = true;
+};
+
+const editCourse = (course) => {
+    currentCourse.value = { ...course }; // Clone object
     courseDialog.value = true;
 };
 
 const saveCourse = () => {
     submitted.value = true;
+
     if (currentCourse.value.name && currentCourse.value.code) {
         if (currentCourse.value.id) {
+            // Update Existing
             const index = courses.value.findIndex(c => c.id === currentCourse.value.id);
             courses.value[index] = currentCourse.value;
-            toast.add({ severity: 'success', summary: 'System Update', detail: 'Course Module Updated', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Updated', detail: 'Course updated successfully', life: 3000 });
         } else {
+            // Create New
             currentCourse.value.id = createId();
-            if(!currentCourse.value.topics) currentCourse.value.topics = [];
+            // Ensure topics array exists
+            if (!currentCourse.value.topics) currentCourse.value.topics = [];
             courses.value.push(currentCourse.value);
-            toast.add({ severity: 'success', summary: 'New Node', detail: 'Course Module Initialized', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Created', detail: 'New course added', life: 3000 });
         }
         courseDialog.value = false;
+        currentCourse.value = {};
     }
 };
 
-const editCourse = (course) => {
-    currentCourse.value = { ...course };
-    courseDialog.value = true;
+const confirmDeleteCourse = (course) => {
+    itemToDelete.value = course;
+    deleteType.value = 'course';
+    deleteDialog.value = true;
 };
 
-// --- Topic Actions ---
+// ==========================================
+//  ACTIONS: Topic CRUD
+// ==========================================
 const openNewTopic = (parentCourse) => {
     activeParentCourse.value = parentCourse;
-    currentTopic.value = { skills: [] };
-    submitted.value = false;
+    currentTopic.value = { skills: [] }; // Initialize with empty skills
     topicDialog.value = true;
 };
 
 const editTopic = (topic, parentCourse) => {
     activeParentCourse.value = parentCourse;
-    currentTopic.value = { ...topic };
+    // Clone to avoid direct mutation until save
+    currentTopic.value = { ...topic, skills: [...(topic.skills || [])] };
     topicDialog.value = true;
 };
 
 const saveTopic = () => {
-    submitted.value = true;
-    if (currentTopic.value.name) {
-        const parentIndex = courses.value.findIndex(c => c.id === activeParentCourse.value.id);
-        const parent = courses.value[parentIndex];
+    if (!currentTopic.value.name) return;
 
-        if (currentTopic.value.id) {
-            const topicIndex = parent.topics.findIndex(t => t.id === currentTopic.value.id);
+    // Find the parent course in the reactive array
+    const parentIndex = courses.value.findIndex(c => c.id === activeParentCourse.value.id);
+    if (parentIndex === -1) return;
+
+    const parent = courses.value[parentIndex];
+
+    if (currentTopic.value.id) {
+        // Update Existing Topic
+        const topicIndex = parent.topics.findIndex(t => t.id === currentTopic.value.id);
+        if (topicIndex !== -1) {
             parent.topics[topicIndex] = currentTopic.value;
-            toast.add({ severity: 'success', summary: 'Content Updated', detail: 'Syllabus node modified', life: 3000 });
-        } else {
-            currentTopic.value.id = createId();
-            parent.topics.push(currentTopic.value);
-            toast.add({ severity: 'success', summary: 'Content Added', detail: 'Syllabus node appended', life: 3000 });
         }
-        topicDialog.value = false;
-    }
-};
+        toast.add({ severity: 'success', summary: 'Content Updated', detail: 'Topic modified.', life: 3000 });
+    } else {
+        // Create New Topic
+        currentTopic.value.id = 't-' + createId();
+        // Ensure skills is array
+        if (!Array.isArray(currentTopic.value.skills)) currentTopic.value.skills = [];
+        parent.topics.push(currentTopic.value);
 
-// --- Delete Actions ---
-const confirmDeleteCourse = (course) => {
-    itemToDelete.value = course;
-    deleteType.value = 'course';
-    deleteDialog.value = true;
+        // Auto-expand the parent row to show the new topic
+        expandedRows.value[parent.id] = true;
+        toast.add({ severity: 'success', summary: 'Content Added', detail: 'New topic added to syllabus.', life: 3000 });
+    }
+
+    topicDialog.value = false;
+    currentTopic.value = {};
 };
 
 const confirmDeleteTopic = (topic, parentCourse) => {
@@ -144,35 +359,25 @@ const confirmDeleteTopic = (topic, parentCourse) => {
     deleteDialog.value = true;
 };
 
+// ==========================================
+//  ACTIONS: Unified Delete
+// ==========================================
 const deleteItem = () => {
     if (deleteType.value === 'course') {
         courses.value = courses.value.filter(c => c.id !== itemToDelete.value.id);
-        toast.add({ severity: 'success', summary: 'Deleted', detail: 'Course removed from registry', life: 3000 });
-    } else {
+        toast.add({ severity: 'success', summary: 'Deleted', detail: 'Course removed from registry.', life: 3000 });
+    }
+    else if (deleteType.value === 'topic') {
         const parentIndex = courses.value.findIndex(c => c.id === activeParentCourse.value.id);
-        courses.value[parentIndex].topics = courses.value[parentIndex].topics.filter(t => t.id !== itemToDelete.value.id);
-        toast.add({ severity: 'success', summary: 'Deleted', detail: 'Content node removed', life: 3000 });
+        if (parentIndex !== -1) {
+            courses.value[parentIndex].topics = courses.value[parentIndex].topics.filter(t => t.id !== itemToDelete.value.id);
+            toast.add({ severity: 'success', summary: 'Deleted', detail: 'Content outline removed.', life: 3000 });
+        }
     }
+
     deleteDialog.value = false;
-};
-
-const createId = () => Math.floor(Math.random() * 10000).toString();
-
-const getDeptColor = (dept) => {
-    switch (dept) {
-        case 'CS': return 'bg-blue-50 text-blue-600 border-blue-200';
-        case 'DES': return 'bg-purple-50 text-purple-600 border-purple-200';
-        case 'MATH': return 'bg-green-50 text-green-600 border-green-200';
-        case 'ENG': return 'bg-orange-50 text-orange-600 border-orange-200';
-        default: return 'bg-gray-50 text-gray-600 border-gray-200';
-    }
-};
-
-const expandAll = () => {
-    expandedRows.value = courses.value.reduce((acc, p) => (acc[p.id] = true) && acc, {});
-};
-const collapseAll = () => {
-    expandedRows.value = null;
+    itemToDelete.value = null;
+    activeParentCourse.value = null;
 };
 </script>
 
@@ -397,7 +602,10 @@ const collapseAll = () => {
             </template>
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle text-3xl text-red-500"></i>
-                <span class="text-[#2c4c52] text-sm">Are you sure you want to delete this node?</span>
+                <div>
+                    <span class="text-[#2c4c52] text-sm block">Are you sure you want to delete this {{ deleteType }}?</span>
+                    <span class="text-xs text-[#4a7a82]" v-if="deleteType === 'course'">This will delete all nested topics.</span>
+                </div>
             </div>
             <template #footer>
                 <div class="flex gap-2 justify-end pt-4">

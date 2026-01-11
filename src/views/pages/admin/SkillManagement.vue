@@ -1,11 +1,16 @@
 <script setup>
 import { FilterMatchMode } from '@primevue/core/api';
 import { useToast } from 'primevue/usetoast';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue'; // Import watch
+import { storeToRefs } from 'pinia';
+import { useSkillStore } from '@/stores/skill';
 
 const toast = useToast();
 const dt = ref();
-const skills = ref([]);
+const skillStore = useSkillStore();
+
+const { skills, loading } = storeToRefs(skillStore);
+
 const skillDialog = ref(false);
 const deleteSkillDialog = ref(false);
 const deleteSkillsDialog = ref(false);
@@ -17,13 +22,12 @@ const filters = ref({
 const submitted = ref(false);
 
 const domains = ref([
-    { label: 'Frontend', value: 'Frontend' },
-    { label: 'Backend', value: 'Backend' },
-    { label: 'DevOps', value: 'DevOps' },
-    { label: 'Mobile', value: 'Mobile' },
-    { label: 'Design', value: 'Design' },
-    { label: 'Soft Skills', value: 'Soft Skills' },
-    { label: 'Data Science', value: 'Data Science' }
+    { label: 'Software Engineering & Development', value: 'Engineering' },
+    { label: 'Data Science, AI & Machine Learning', value: 'Data-AI' },
+    { label: 'Infrastructure, Cloud & DevOps', value: 'Infrastructure' },
+    { label: 'Cybersecurity & Information Security', value: 'Security' },
+    { label: 'Product, Business & Management', value: 'Product' },
+    { label: 'User Experience (UX) & Design', value: 'Design' },
 ]);
 
 const statuses = ref([
@@ -32,15 +36,21 @@ const statuses = ref([
     { label: 'Draft', value: 'Draft' }
 ]);
 
-// Mock Data Loading
 onMounted(() => {
-    skills.value = [
-        { id: 1001, name: 'Vue.js', domain: 'Frontend', description: 'Progressive JavaScript Framework', status: 'Active' },
-        { id: 1002, name: 'Python', domain: 'Backend', description: 'General purpose programming language', status: 'Active' },
-        { id: 1003, name: 'Docker', domain: 'DevOps', description: 'Containerization platform', status: 'Active' },
-        { id: 1004, name: 'Figma', domain: 'Design', description: 'Interface design tool', status: 'Active' },
-        { id: 1005, name: 'AngularJS', domain: 'Frontend', description: 'Legacy framework', status: 'Deprecated' }
-    ];
+    skillStore.fetchSkills();
+});
+
+// --- Helper: Auto-generate Slug ---
+// Watch for Name changes to auto-fill slug if it's a NEW entry
+watch(() => skill.value.name, (newVal) => {
+    if (!skill.value.id && newVal) {
+        skill.value.slug = newVal
+            .toLowerCase()
+            .trim()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/[\s_-]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
 });
 
 function openNew() {
@@ -54,24 +64,24 @@ function hideDialog() {
     submitted.value = false;
 }
 
-function saveSkill() {
+async function saveSkill() {
     submitted.value = true;
 
     if (skill?.value.name?.trim() && skill?.value.domain) {
-        if (skill.value.id) {
-            // Update Existing
-            const index = findIndexById(skill.value.id);
-            skills.value[index] = skill.value;
-            toast.add({ severity: 'success', summary: 'System Update', detail: 'Skill Parameters Modified', life: 3000 });
-        } else {
-            // Create New
-            skill.value.id = createId();
-            skills.value.push(skill.value);
-            toast.add({ severity: 'success', summary: 'New Node', detail: 'Skill Added to Matrix', life: 3000 });
-        }
+        try {
+            if (skill.value.id) {
+                await skillStore.updateSkill(skill.value.id, skill.value);
+                toast.add({ severity: 'success', summary: 'System Update', detail: 'Skill Parameters Modified', life: 3000 });
+            } else {
+                await skillStore.createSkill(skill.value);
+                toast.add({ severity: 'success', summary: 'New Node', detail: 'Skill Added to Matrix', life: 3000 });
+            }
 
-        skillDialog.value = false;
-        skill.value = {};
+            skillDialog.value = false;
+            skill.value = {};
+        } catch (error) {
+            toast.add({ severity: 'error', summary: 'Operation Failed', detail: 'Could not save skill.', life: 3000 });
+        }
     }
 }
 
@@ -85,30 +95,31 @@ function confirmDeleteSkill(item) {
     deleteSkillDialog.value = true;
 }
 
-function deleteSkill() {
-    skills.value = skills.value.filter((val) => val.id !== skill.value.id);
-    deleteSkillDialog.value = false;
-    skill.value = {};
-    toast.add({ severity: 'success', summary: 'Node Removed', detail: 'Skill Deleted', life: 3000 });
-}
-
-function findIndexById(id) {
-    return skills.value.findIndex(s => s.id === id);
-}
-
-function createId() {
-    return Math.floor(Math.random() * 10000);
+async function deleteSkill() {
+    try {
+        await skillStore.deleteSkill(skill.value.id);
+        deleteSkillDialog.value = false;
+        skill.value = {};
+        toast.add({ severity: 'success', summary: 'Node Removed', detail: 'Skill Deleted', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete skill.', life: 3000 });
+    }
 }
 
 function confirmDeleteSelected() {
     deleteSkillsDialog.value = true;
 }
 
-function deleteSelectedSkills() {
-    skills.value = skills.value.filter((val) => !selectedSkills.value.includes(val));
-    deleteSkillsDialog.value = false;
-    selectedSkills.value = null;
-    toast.add({ severity: 'success', summary: 'Batch Removal', detail: 'Skills Deleted', life: 3000 });
+async function deleteSelectedSkills() {
+    try {
+        const promises = selectedSkills.value.map(s => skillStore.deleteSkill(s.id));
+        await Promise.all(promises);
+        deleteSkillsDialog.value = false;
+        selectedSkills.value = null;
+        toast.add({ severity: 'success', summary: 'Batch Removal', detail: 'Skills Deleted', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Some skills could not be deleted.', life: 3000 });
+    }
 }
 
 function getStatusSeverity(status) {
@@ -123,14 +134,12 @@ function getStatusSeverity(status) {
 
 <template>
     <div class="relative min-h-[85vh] font-sans text-[#2c4c52]">
-
         <div class="absolute inset-0 z-0 pointer-events-none opacity-20"
              style="background-image: linear-gradient(#7bc5cd 1px, transparent 1px), linear-gradient(90deg, #7bc5cd 1px, transparent 1px); background-size: 40px 40px;">
         </div>
         <div class="absolute top-0 right-0 w-[50vw] h-[50vw] bg-[#7bc5cd] rounded-full blur-[120px] opacity-15 pointer-events-none"></div>
 
         <div class="relative z-10 grid grid-cols-12 gap-8 p-4">
-
             <div class="col-span-12 flex flex-col md:flex-row justify-between items-end gap-4 mb-2">
                 <div>
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#2c4c52]/5 border border-[#2c4c52]/10 mb-2">
@@ -139,7 +148,6 @@ function getStatusSeverity(status) {
                     </div>
                     <h2 class="text-3xl font-black text-[#2c4c52] uppercase tracking-tighter">Skill Management</h2>
                 </div>
-
                 <div class="flex gap-3">
                     <Button label="EXPORT_DATA" icon="pi pi-download" class="y2k-button-secondary !hidden md:!flex" @click="dt.exportCSV($event)" />
                     <Button label="NEW_SKILL" icon="pi pi-plus" class="y2k-button-primary" @click="openNew" />
@@ -148,7 +156,6 @@ function getStatusSeverity(status) {
 
             <div class="col-span-12">
                 <div class="bg-white/40 backdrop-blur-xl border border-white/60 p-6 rounded-3xl shadow-sm overflow-hidden">
-
                     <div class="flex justify-between items-center mb-4">
                         <div class="flex gap-2">
                              <Button label="DELETE_SELECTED" icon="pi pi-trash" class="y2k-button-danger !text-[10px]"
@@ -166,6 +173,7 @@ function getStatusSeverity(status) {
                         ref="dt"
                         v-model:selection="selectedSkills"
                         :value="skills"
+                        :loading="loading"
                         dataKey="id"
                         :paginator="true"
                         :rows="10"
@@ -176,7 +184,6 @@ function getStatusSeverity(status) {
                         class="y2k-table"
                         responsiveLayout="scroll"
                     >
-
                         <Column selectionMode="multiple" style="width: 3rem" :exportable="false"></Column>
 
                         <Column field="name" header="SKILL_IDENTITY" sortable style="min-width: 14rem">
@@ -185,7 +192,10 @@ function getStatusSeverity(status) {
                                     <div class="w-8 h-8 rounded bg-[#2c4c52] flex items-center justify-center text-[#7bc5cd] font-black text-sm">
                                         {{ slotProps.data.name.charAt(0) }}
                                     </div>
-                                    <span class="font-bold text-[#2c4c52] text-sm">{{ slotProps.data.name }}</span>
+                                    <div class="flex flex-col">
+                                        <span class="font-bold text-[#2c4c52] text-sm">{{ slotProps.data.name }}</span>
+                                        <span class="text-[10px] text-[#4a7a82] font-mono">{{ slotProps.data.slug }}</span>
+                                    </div>
                                 </div>
                             </template>
                         </Column>
@@ -193,13 +203,15 @@ function getStatusSeverity(status) {
                         <Column field="domain" header="DOMAIN_CATEGORY" sortable style="min-width: 12rem">
                             <template #body="slotProps">
                                 <span class="px-2 py-1 rounded text-[10px] font-bold uppercase border"
-                                      :class="{
-                                          'bg-blue-50 text-blue-600 border-blue-200': slotProps.data.domain === 'Frontend',
-                                          'bg-green-50 text-green-600 border-green-200': slotProps.data.domain === 'Backend',
-                                          'bg-purple-50 text-purple-600 border-purple-200': slotProps.data.domain === 'Design',
-                                          'bg-orange-50 text-orange-600 border-orange-200': slotProps.data.domain === 'DevOps',
-                                          'bg-gray-50 text-gray-600 border-gray-200': !['Frontend','Backend','Design','DevOps'].includes(slotProps.data.domain)
-                                      }">
+                                    :class="{
+                                        'bg-blue-50 text-blue-600 border-blue-200': slotProps.data.domain === 'Engineering',
+                                        'bg-purple-50 text-purple-600 border-purple-200': slotProps.data.domain === 'Data-AI',
+                                        'bg-orange-50 text-orange-600 border-orange-200': slotProps.data.domain === 'Infrastructure',
+                                        'bg-red-50 text-red-600 border-red-200': slotProps.data.domain === 'Security',
+                                        'bg-teal-50 text-teal-600 border-teal-200': slotProps.data.domain === 'Product',
+                                        'bg-pink-50 text-pink-600 border-pink-200': slotProps.data.domain === 'Design',
+                                        'bg-gray-50 text-gray-600 border-gray-200': !['Engineering','Data-AI','Infrastructure','Security','Product','Design'].includes(slotProps.data.domain)
+                                    }">
                                     {{ slotProps.data.domain }}
                                 </span>
                             </template>
@@ -247,6 +259,11 @@ function getStatusSeverity(status) {
                     <small v-if="submitted && !skill.name" class="text-red-500 text-[10px] font-bold">REQUIRED FIELD</small>
                 </div>
 
+                <div class="space-y-1">
+                    <label class="font-mono text-[10px] font-bold text-[#4a7a82] uppercase ml-1">Slug (Identifier)</label>
+                    <InputText v-model.trim="skill.slug" class="w-full y2k-input" placeholder="auto-generated-if-blank" />
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-1">
                         <label class="font-mono text-[10px] font-bold text-[#4a7a82] uppercase ml-1">Domain</label>
@@ -268,7 +285,7 @@ function getStatusSeverity(status) {
             <template #footer>
                 <div class="flex gap-2 justify-end pt-4 border-t border-[#2c4c52]/10">
                     <Button label="CANCEL" text class="!text-[#2c4c52] !font-bold !text-xs" @click="hideDialog" />
-                    <Button label="SAVE ENTRY" class="y2k-button-primary !text-xs !py-2" @click="saveSkill" />
+                    <Button label="SAVE ENTRY" class="y2k-button-primary !text-xs !py-2" @click="saveSkill" :loading="loading" />
                 </div>
             </template>
         </Dialog>
@@ -281,7 +298,7 @@ function getStatusSeverity(status) {
             <template #footer>
                 <div class="flex gap-2 justify-end pt-4">
                     <Button label="ABORT" text class="!text-[#2c4c52] !font-bold !text-xs" @click="deleteSkillDialog = false" />
-                    <Button label="CONFIRM DELETION" severity="danger" class="!font-bold !text-xs" @click="deleteSkill" />
+                    <Button label="CONFIRM DELETION" severity="danger" class="!font-bold !text-xs" @click="deleteSkill" :loading="loading" />
                 </div>
             </template>
         </Dialog>
@@ -294,7 +311,7 @@ function getStatusSeverity(status) {
             <template #footer>
                 <div class="flex gap-2 justify-end pt-4">
                     <Button label="ABORT" text class="!text-[#2c4c52] !font-bold !text-xs" @click="deleteSkillsDialog = false" />
-                    <Button label="CONFIRM DELETION" severity="danger" class="!font-bold !text-xs" @click="deleteSelectedSkills" />
+                    <Button label="CONFIRM DELETION" severity="danger" class="!font-bold !text-xs" @click="deleteSelectedSkills" :loading="loading" />
                 </div>
             </template>
         </Dialog>
@@ -302,7 +319,7 @@ function getStatusSeverity(status) {
 </template>
 
 <style scoped>
-/* Y2K Utilities */
+/* (Same styles as previous - truncated for brevity) */
 .y2k-button-primary {
     background: linear-gradient(135deg, #2c4c52 0%, #1a3338 100%) !important;
     border: 1px solid rgba(255,255,255,0.2) !important;
@@ -317,7 +334,6 @@ function getStatusSeverity(status) {
     filter: brightness(1.1);
     transform: translateY(-1px);
 }
-
 .y2k-button-secondary {
     background: transparent !important;
     border: 2px solid rgba(44, 76, 82, 0.1) !important;
@@ -327,7 +343,6 @@ function getStatusSeverity(status) {
     text-transform: uppercase;
     font-size: 0.75rem !important;
 }
-
 .y2k-button-danger {
     background: transparent !important;
     border: 2px solid rgba(239, 68, 68, 0.2) !important;
@@ -337,7 +352,6 @@ function getStatusSeverity(status) {
     text-transform: uppercase;
     font-size: 0.75rem !important;
 }
-
 .y2k-input, :deep(.y2k-input) {
     background: rgba(255, 255, 255, 0.8) !important;
     border: 1px solid rgba(44, 76, 82, 0.15) !important;
@@ -345,13 +359,11 @@ function getStatusSeverity(status) {
     color: #2c4c52 !important;
     font-weight: 600 !important;
 }
-
 :deep(.y2k-dropdown) {
     background: rgba(255, 255, 255, 0.6) !important;
     border: 1px solid rgba(44, 76, 82, 0.15) !important;
     border-radius: 8px !important;
 }
-
 /* DataTable Customization */
 :deep(.y2k-table .p-datatable-header) {
     background: transparent;
@@ -377,7 +389,6 @@ function getStatusSeverity(status) {
     border-bottom: 1px solid rgba(44, 76, 82, 0.05);
     padding: 1rem;
 }
-
 /* Dialogs */
 :deep(.y2k-dialog .p-dialog-header),
 :deep(.y2k-dialog .p-dialog-content),
@@ -388,7 +399,6 @@ function getStatusSeverity(status) {
 :deep(.y2k-dialog .p-dialog-header) {
     border-bottom: 1px solid rgba(44, 76, 82, 0.05);
 }
-
 /* Paginator */
 :deep(.p-paginator) {
     background: transparent !important;
